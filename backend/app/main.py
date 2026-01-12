@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.api import setup_routers
 from app.core.errors.exception_handlers import setup_exception_handlers
 from app.core.middleware import setup_middleware
 from app.core.observability.logging import configure_logging
@@ -18,6 +19,7 @@ def create_app() -> FastAPI:
 
     setup_middleware(app)
     setup_exception_handlers(app, debug=settings.debug)
+    setup_routers(app)
 
     return app
 

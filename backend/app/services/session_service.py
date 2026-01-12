@@ -1,0 +1,85 @@
+import logging
+import uuid
+
+from sqlalchemy.orm import Session
+
+from app.models.agent_session import AgentSession
+from app.repositories.session_repository import SessionRepository
+from app.schemas.session import SessionCreateRequest, SessionUpdateRequest
+
+logger = logging.getLogger(__name__)
+
+
+class SessionService:
+    """Service layer for session management."""
+
+    def create_session(
+        self, db: Session, request: SessionCreateRequest
+    ) -> AgentSession:
+        """Creates a new session."""
+        config_dict = request.config.model_dump() if request.config else None
+
+        db_session = SessionRepository.create(
+            session_db=db,
+            user_id=request.user_id,
+            config=config_dict,
+        )
+
+        db.commit()
+        db.refresh(db_session)
+
+        logger.info(f"Created session {db_session.id} for user {request.user_id}")
+        return db_session
+
+    def get_session(self, db: Session, session_id: uuid.UUID) -> AgentSession:
+        """Gets a session by ID.
+
+        Raises:
+            ValueError: If session not found.
+        """
+        db_session = SessionRepository.get_by_id(db, session_id)
+        if not db_session:
+            raise ValueError(f"Session not found: {session_id}")
+        return db_session
+
+    def update_session(
+        self, db: Session, session_id: uuid.UUID, request: SessionUpdateRequest
+    ) -> AgentSession:
+        """Updates session fields."""
+        db_session = self.get_session(db, session_id)
+
+        if request.status is not None:
+            db_session.status = request.status
+        if request.sdk_session_id is not None:
+            db_session.sdk_session_id = request.sdk_session_id
+        if request.workspace_archive_url is not None:
+            db_session.workspace_archive_url = request.workspace_archive_url
+
+        db.commit()
+        db.refresh(db_session)
+
+        logger.info(f"Updated session {session_id}")
+        return db_session
+
+    def list_sessions(
+        self, db: Session, user_id: str | None = None, limit: int = 100, offset: int = 0
+    ) -> list[AgentSession]:
+        """Lists sessions, optionally filtered by user."""
+        if user_id:
+            return SessionRepository.list_by_user(db, user_id, limit, offset)
+        return SessionRepository.list_all(db, limit, offset)
+
+    def find_session_by_sdk_id_or_uuid(
+        self, db: Session, session_id: str
+    ) -> AgentSession | None:
+        """Finds session by SDK session ID or UUID."""
+        db_session = SessionRepository.get_by_sdk_session_id(db, session_id)
+
+        if not db_session:
+            try:
+                session_uuid = uuid.UUID(session_id)
+                db_session = SessionRepository.get_by_id(db, session_uuid)
+            except ValueError:
+                pass
+
+        return db_session

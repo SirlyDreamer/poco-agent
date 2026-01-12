@@ -61,8 +61,8 @@ class AgentCurrentState(BaseModel):
     current_step: str | None = None
 
 
-class AgentReportCallback(BaseModel):
-    """Agent execution callback report."""
+class AgentCallbackRequest(BaseModel):
+    """Agent execution callback request."""
 
     session_id: str
     time: datetime
@@ -70,3 +70,12 @@ class AgentReportCallback(BaseModel):
     progress: int
     new_message: Any | None = None
     state_patch: AgentCurrentState | None = None
+
+
+class CallbackResponse(BaseModel):
+    """Callback response."""
+
+    session_id: str
+    status: str
+    callback_status: CallbackStatus | None = None
+    message: str | None = None
