@@ -16,7 +16,7 @@ class WorkspaceManager:
         if not self.root_path.exists():
             self.root_path.mkdir(parents=True, exist_ok=True)
 
-        # await self._setup_session_persistence()
+        await self._setup_session_persistence()
 
     async def _setup_session_persistence(self):
         self.persistent_claude_data.mkdir(exist_ok=True)
@@ -30,4 +30,6 @@ class WorkspaceManager:
         self.system_claude_home.symlink_to(self.persistent_claude_data)
 
     async def cleanup(self):
-        pass
+        # Restore system ~/.claude if it was symlinked
+        if self.system_claude_home.is_symlink():
+            self.system_claude_home.unlink()

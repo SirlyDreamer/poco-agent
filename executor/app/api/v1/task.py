@@ -25,7 +25,7 @@ async def run_task(req: TaskRun, background_tasks: BackgroundTasks) -> dict:
         WorkspaceHook(),
         CallbackHook(client=callback_client),
     ]
-    executor = AgentExecutor(req.session_id, hooks)
+    executor = AgentExecutor(req.session_id, hooks, req.sdk_session_id)
 
     background_tasks.add_task(executor.execute, prompt=req.prompt, config=req.config)
 

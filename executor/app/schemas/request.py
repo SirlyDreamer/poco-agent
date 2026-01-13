@@ -14,3 +14,4 @@ class TaskRun(BaseModel):
     callback_url: str
     callback_token: str
     config: TaskConfig
+    sdk_session_id: str | None = None

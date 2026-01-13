@@ -11,6 +11,7 @@ class CallbackHook(AgentHook):
     def __init__(self, client: CallbackClient):
         self.client = client
         self.execution_error: Optional[Exception] = None
+        self.sdk_session_id: Optional[str] = None
 
     def _build_report(
         self,
@@ -25,6 +26,7 @@ class CallbackHook(AgentHook):
             progress=progress,
             new_message=serialize_message(new_message),
             state_patch=context.current_state,
+            sdk_session_id=self.sdk_session_id,
         )
 
     def _calculate_progress(self, todos) -> int:
@@ -34,6 +36,14 @@ class CallbackHook(AgentHook):
         return int((completed / len(todos)) * 100)
 
     async def on_agent_response(self, context: ExecutionContext, message: Any):
+        if message and isinstance(message, dict):
+            message_type = message.get("_type", "")
+            subtype = message.get("subtype", "")
+            if "SystemMessage" in message_type and subtype == "init":
+                data = message.get("data", {})
+                if "session_id" in data:
+                    self.sdk_session_id = data["session_id"]
+
         await self.client.send(
             self._build_report(
                 context=context,

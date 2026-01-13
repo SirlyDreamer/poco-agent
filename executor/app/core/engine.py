@@ -13,8 +13,9 @@ load_dotenv()
 
 
 class AgentExecutor:
-    def __init__(self, session_id: str, hooks: list):
+    def __init__(self, session_id: str, hooks: list, sdk_session_id: str | None = None):
         self.session_id = session_id
+        self.sdk_session_id = sdk_session_id
         self.hooks = HookManager(hooks)
         self.workspace = WorkspaceManager(
             mount_path=os.environ.get("WORKSPACE_PATH", "/workspace")
@@ -29,6 +30,7 @@ class AgentExecutor:
 
             options = ClaudeAgentOptions(
                 cwd=ctx.cwd,
+                resume=self.sdk_session_id,
                 setting_sources=["project"],
                 mcp_servers=config.mcp_config,
                 permission_mode="bypassPermissions",

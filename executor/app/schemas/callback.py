@@ -16,3 +16,4 @@ class AgentCallbackRequest(BaseModel):
     progress: int
     new_message: Optional[Any] = None
     state_patch: Optional[AgentCurrentState] = None
+    sdk_session_id: Optional[str] = None
