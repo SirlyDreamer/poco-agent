@@ -163,6 +163,26 @@ async def update_session(
     )
 
 
+@router.delete("/{session_id}", response_model=ResponseSchema[dict])
+async def delete_session(
+    session_id: uuid.UUID,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    """Soft deletes a session."""
+    db_session = session_service.get_session(db, session_id)
+    if db_session.user_id != user_id:
+        raise AppException(
+            error_code=ErrorCode.FORBIDDEN,
+            message="Session does not belong to the user",
+        )
+    session_service.delete_session(db, session_id)
+    return Response.success(
+        data={"id": session_id},
+        message="Session deleted successfully",
+    )
+
+
 @router.get(
     "/{session_id}/messages", response_model=ResponseSchema[list[MessageResponse]]
 )

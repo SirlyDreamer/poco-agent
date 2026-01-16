@@ -76,6 +76,17 @@ class SessionService:
         logger.info(f"Updated session {session_id}")
         return db_session
 
+    def delete_session(self, db: Session, session_id: uuid.UUID) -> AgentSession:
+        """Soft deletes a session."""
+        db_session = self.get_session(db, session_id)
+        db_session.is_deleted = True
+
+        db.commit()
+        db.refresh(db_session)
+
+        logger.info(f"Soft deleted session {session_id}")
+        return db_session
+
     def list_sessions(
         self, db: Session, user_id: str | None = None, limit: int = 100, offset: int = 0
     ) -> list[AgentSession]:

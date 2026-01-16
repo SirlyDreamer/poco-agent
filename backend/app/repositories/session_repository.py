@@ -29,7 +29,12 @@ class SessionRepository:
     def get_by_id(session_db: Session, session_id: uuid.UUID) -> AgentSession | None:
         """Gets a session by ID."""
         return (
-            session_db.query(AgentSession).filter(AgentSession.id == session_id).first()
+            session_db.query(AgentSession)
+            .filter(
+                AgentSession.id == session_id,
+                AgentSession.is_deleted.is_(False),
+            )
+            .first()
         )
 
     @staticmethod
@@ -39,7 +44,10 @@ class SessionRepository:
         """Gets a session by SDK session ID."""
         return (
             session_db.query(AgentSession)
-            .filter(AgentSession.sdk_session_id == sdk_session_id)
+            .filter(
+                AgentSession.sdk_session_id == sdk_session_id,
+                AgentSession.is_deleted.is_(False),
+            )
             .first()
         )
 
@@ -53,7 +61,10 @@ class SessionRepository:
         """Lists sessions for a user."""
         return (
             session_db.query(AgentSession)
-            .filter(AgentSession.user_id == user_id)
+            .filter(
+                AgentSession.user_id == user_id,
+                AgentSession.is_deleted.is_(False),
+            )
             .order_by(AgentSession.created_at.desc())
             .limit(limit)
             .offset(offset)
@@ -69,6 +80,7 @@ class SessionRepository:
         """Lists all sessions."""
         return (
             session_db.query(AgentSession)
+            .filter(AgentSession.is_deleted.is_(False))
             .order_by(AgentSession.created_at.desc())
             .limit(limit)
             .offset(offset)
@@ -80,7 +92,10 @@ class SessionRepository:
         """Counts sessions for a user."""
         return (
             session_db.query(AgentSession)
-            .filter(AgentSession.user_id == user_id)
+            .filter(
+                AgentSession.user_id == user_id,
+                AgentSession.is_deleted.is_(False),
+            )
             .count()
         )
 
@@ -98,7 +113,10 @@ class SessionRepository:
         query = (
             session_db.query(AgentSession)
             .options(joinedload(AgentSession.messages))
-            .filter(AgentSession.user_id == user_id)
+            .filter(
+                AgentSession.user_id == user_id,
+                AgentSession.is_deleted.is_(False),
+            )
             .order_by(AgentSession.created_at.desc())
         )
         if limit is not None:

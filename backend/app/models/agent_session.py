@@ -1,7 +1,7 @@
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, String, Text, text
+from sqlalchemy import JSON, Boolean, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models import Base, TimestampMixin
@@ -32,6 +32,9 @@ class AgentSession(Base, TimestampMixin):
         String(50), nullable=True
     )
     status: Mapped[str] = mapped_column(String(50), default="running", nullable=False)
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
 
     messages: Mapped[list["AgentMessage"]] = relationship(
         back_populates="session", cascade="all, delete-orphan"
