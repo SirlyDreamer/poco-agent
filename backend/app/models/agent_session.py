@@ -37,6 +37,7 @@ class AgentSession(Base, TimestampMixin):
     workspace_export_status: Mapped[str | None] = mapped_column(
         String(50), nullable=True
     )
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="running", nullable=False)
     is_deleted: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=text("false"), nullable=False

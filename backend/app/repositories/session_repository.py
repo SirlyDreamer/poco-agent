@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.models.agent_session import AgentSession
 
@@ -108,32 +108,6 @@ class SessionRepository:
             )
             .count()
         )
-
-    @staticmethod
-    def list_by_user_with_messages(
-        session_db: Session,
-        user_id: str,
-        limit: int | None = None,
-        offset: int = 0,
-        project_id: uuid.UUID | None = None,
-    ) -> list[AgentSession]:
-        """Lists sessions for a user with messages loaded for title extraction.
-
-        @deprecated: Temporary method for frontend development.
-        """
-        query = session_db.query(AgentSession).options(
-            joinedload(AgentSession.messages)
-        )
-        query = query.filter(
-            AgentSession.user_id == user_id,
-            AgentSession.is_deleted.is_(False),
-        )
-        if project_id is not None:
-            query = query.filter(AgentSession.project_id == project_id)
-        query = query.order_by(AgentSession.created_at.desc())
-        if limit is not None:
-            query = query.limit(limit).offset(offset)
-        return query.all()
 
     @staticmethod
     def clear_project_id(session_db: Session, project_id: uuid.UUID) -> None:

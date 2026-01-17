@@ -45,35 +45,14 @@ class SessionResponse(BaseModel):
     user_id: str
     project_id: UUID | None
     sdk_session_id: str | None
-    config_snapshot: dict[str, Any] | None
-    workspace_archive_url: str | None
-    state_patch: AgentCurrentState | None = None
-    workspace_export_status: str | None = None
-    status: str
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
-
-
-class SessionWithTitleResponse(BaseModel):
-    """Session response with title (first user prompt).
-
-    @deprecated: Temporary API for frontend development. Will be replaced.
-    """
-
-    session_id: UUID = Field(validation_alias="id")
-    user_id: str
-    project_id: UUID | None
-    sdk_session_id: str | None
-    config_snapshot: dict[str, Any] | None
-    workspace_archive_url: str | None
-    state_patch: AgentCurrentState | None = None
-    workspace_export_status: str | None = None
-    status: str
-    created_at: datetime
-    updated_at: datetime
     title: str | None = None
+    config_snapshot: dict[str, Any] | None
+    workspace_archive_url: str | None
+    state_patch: AgentCurrentState | None = None
+    workspace_export_status: str | None = None
+    status: str
+    created_at: datetime
+    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
