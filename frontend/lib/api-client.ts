@@ -15,6 +15,8 @@ export const API_ENDPOINTS = {
   sessionUsage: (sessionId: string) => `/sessions/${sessionId}/usage`,
   sessionWorkspaceFiles: (sessionId: string) =>
     `/sessions/${sessionId}/workspace/files`,
+  sessionWorkspaceArchive: (sessionId: string) =>
+    `/sessions/${sessionId}/workspace/archive`,
 
   // Tasks
   tasks: "/tasks",

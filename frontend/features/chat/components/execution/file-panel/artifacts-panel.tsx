@@ -14,12 +14,12 @@ interface ArtifactsPanelProps {
   fileChanges?: FileChange[];
   sessionId?: string;
   sessionStatus?:
-    | "running"
-    | "accepted"
-    | "completed"
-    | "failed"
-    | "cancelled"
-    | "stopped";
+  | "running"
+  | "accepted"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "stopped";
 }
 
 /**
@@ -125,6 +125,7 @@ export function ArtifactsPanel({
         selectedFile={selectedFile}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={handleToggleSidebar}
+        sessionId={sessionId}
       />
       <div
         className={cn(
