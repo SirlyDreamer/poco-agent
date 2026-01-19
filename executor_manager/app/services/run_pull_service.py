@@ -177,7 +177,9 @@ class RunPullService:
         callback_url = f"{self.settings.callback_base_url}/api/v1/callback"
 
         try:
-            resolved_config = await self.config_resolver.resolve(config_snapshot)
+            resolved_config = await self.config_resolver.resolve(
+                user_id, config_snapshot
+            )
             staged_skills = self.skill_stager.stage_skills(
                 user_id=user_id,
                 session_id=session_id,

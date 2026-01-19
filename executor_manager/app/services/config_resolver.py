@@ -38,9 +38,9 @@ class ConfigResolver:
         self._mcp_presets: dict[str, dict] = {}
         self._skill_presets: dict[str, dict] = {}
 
-    async def resolve(self, config_snapshot: dict) -> dict:
+    async def resolve(self, user_id: str, config_snapshot: dict) -> dict:
         await self._ensure_cache()
-        env_map = await self._get_env_map()
+        env_map = await self._get_env_map(user_id)
 
         mcp_config = config_snapshot.get("mcp_config") or {}
         skill_files = config_snapshot.get("skill_files") or {}
@@ -68,16 +68,8 @@ class ConfigResolver:
         self._skill_presets = {p["name"]: p for p in skill_presets}
         self._cache_until = now + timedelta(seconds=60)
 
-    async def _get_env_map(self) -> dict[str, str]:
-        env_vars = await self.backend_client.list_env_vars(include_secrets=True)
-        env_map: dict[str, str] = {}
-        for item in env_vars:
-            key = item.get("key")
-            value = item.get("value")
-            if not key or value is None:
-                continue
-            env_map[key] = value
-        return env_map
+    async def _get_env_map(self, user_id: str) -> dict[str, str]:
+        return await self.backend_client.get_env_map(user_id=user_id)
 
     def _resolve_mcp(self, mcp_config: dict, env_map: dict[str, str]) -> dict:
         resolved: dict = {}

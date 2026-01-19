@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     retry_attempts: int = Field(default=3)
     retry_delay_seconds: int = Field(default=60)
     callback_token: str = Field(default="change-this-token-in-production")
+    internal_api_token: str = Field(
+        default="change-this-token-in-production", alias="INTERNAL_API_TOKEN"
+    )
     task_pull_enabled: bool = Field(default=True, alias="TASK_PULL_ENABLED")
     # Backward compatible default pull interval (used when per-queue intervals are unset)
     task_pull_interval_seconds: int = Field(

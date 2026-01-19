@@ -61,7 +61,7 @@ class TaskDispatcher:
                 f"Dispatching task {task_id} (session: {session_id}, mode: {container_mode})"
             )
 
-            resolved_config = await config_resolver.resolve(config or {})
+            resolved_config = await config_resolver.resolve(user_id, config or {})
             staged_skills = skill_stager.stage_skills(
                 user_id=user_id,
                 session_id=session_id,

@@ -83,15 +83,18 @@ class BackendClient:
             data = response.json()
             return data["data"]
 
-    async def list_env_vars(self, include_secrets: bool = False) -> list[dict]:
+    async def get_env_map(self, user_id: str) -> dict[str, str]:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{self.base_url}/api/v1/env-vars",
-                params={"include_secrets": str(include_secrets).lower()},
+                f"{self.base_url}/api/v1/internal/env-vars/map",
+                headers={
+                    "X-Internal-Token": self.settings.internal_api_token,
+                    "X-User-Id": user_id,
+                },
             )
             response.raise_for_status()
             data = response.json()
-            return data.get("data", [])
+            return data.get("data", {}) or {}
 
     async def list_mcp_presets(self, include_inactive: bool = False) -> list[dict]:
         async with httpx.AsyncClient() as client:
