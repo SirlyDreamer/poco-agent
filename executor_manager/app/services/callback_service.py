@@ -4,7 +4,10 @@ from datetime import datetime, timezone
 
 from app.schemas.callback import AgentCallbackRequest, CallbackReceiveResponse
 from app.services.backend_client import BackendClient
-from app.services.workspace_export_service import WorkspaceExportService
+from app.services.workspace_export_service import (
+    WorkspaceExportService,
+    workspace_manager,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +18,71 @@ workspace_export_service = WorkspaceExportService()
 
 class CallbackService:
     """Service layer for callback processing."""
+
+    @staticmethod
+    def _is_ignored_workspace_path(path: str) -> bool:
+        """Check whether a workspace-relative path should be ignored.
+
+        This keeps /sessions state_patch.workspace_state.file_changes consistent with the
+        workspace export/list ignore policy in executor_manager WorkspaceManager.
+        """
+        clean = (path or "").replace("\\", "/").strip()
+        if not clean:
+            return True
+
+        # Normalise common prefixes while keeping the path relative.
+        while clean.startswith("./"):
+            clean = clean[2:]
+        clean = clean.lstrip("/")
+
+        parts = [p for p in clean.split("/") if p]
+        if not parts:
+            return True
+        # Defensive: never allow traversal-like paths to leak into state.
+        if any(p in (".", "..") for p in parts):
+            return True
+
+        ignore_names = workspace_manager._ignore_names
+        ignore_dot = workspace_manager.ignore_dot_files
+
+        for part in parts:
+            if part in ignore_names:
+                return True
+            if ignore_dot and part.startswith("."):
+                return True
+        return False
+
+    @classmethod
+    def _filter_state_patch(
+        cls, callback: AgentCallbackRequest
+    ) -> AgentCallbackRequest:
+        state = callback.state_patch
+        if not state or not state.workspace_state:
+            return callback
+
+        workspace_state = state.workspace_state
+        file_changes = workspace_state.file_changes or []
+        if not file_changes:
+            return callback
+
+        filtered_changes = [
+            fc for fc in file_changes if not cls._is_ignored_workspace_path(fc.path)
+        ]
+        if len(filtered_changes) == len(file_changes):
+            return callback
+
+        total_added = sum(fc.added_lines for fc in filtered_changes)
+        total_deleted = sum(fc.deleted_lines for fc in filtered_changes)
+
+        new_workspace_state = workspace_state.model_copy(
+            update={
+                "file_changes": filtered_changes,
+                "total_added_lines": total_added,
+                "total_deleted_lines": total_deleted,
+            }
+        )
+        new_state = state.model_copy(update={"workspace_state": new_workspace_state})
+        return callback.model_copy(update={"state_patch": new_state})
 
     async def process_callback(
         self, callback: AgentCallbackRequest
@@ -49,6 +117,8 @@ class CallbackService:
                 "sdk_session_id": callback.sdk_session_id,
             },
         )
+
+        callback = self._filter_state_patch(callback)
 
         if callback.state_patch:
             state = callback.state_patch
