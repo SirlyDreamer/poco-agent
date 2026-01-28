@@ -1,6 +1,11 @@
 # Configuration Guide (Environment Variables)
 
-This project includes 4 services: `backend` / `executor-manager` / `executor` / `frontend`, plus 2 dependencies: `postgres` / `rustfs` (S3-compatible storage).
+This project includes 4 services: `backend` / `executor-manager` / `executor` / `frontend`.
+
+Dependencies:
+
+- `postgres`
+- S3-compatible object storage (optional local `rustfs`, or cloud providers like Cloudflare R2)
 
 Below are common environment variables for each service (with meaning and defaults). In production, replace all `change-this-*`, weak passwords, and default secrets.
 
@@ -11,9 +16,11 @@ Required (otherwise it will not start or key features will fail):
 - `DATABASE_URL`: PostgreSQL connection string, e.g. `postgresql://postgres:postgres@postgres:5432/poco`
 - `SECRET_KEY`: backend secret key (security-related logic)
 - `INTERNAL_API_TOKEN`: internal auth token (Executor Manager uses it to call Backend internal APIs)
-- `S3_ENDPOINT`: S3-compatible endpoint, e.g. `http://rustfs:9000`
+- `S3_ENDPOINT`: S3-compatible endpoint
+  - local rustfs: `http://rustfs:9000`
+  - Cloudflare R2: `https://<accountid>.r2.cloudflarestorage.com`
 - `S3_ACCESS_KEY` / `S3_SECRET_KEY`: S3 credentials
-- `S3_BUCKET`: bucket name (must exist; Compose can create via init container)
+- `S3_BUCKET`: bucket name (must exist; local rustfs can create via `rustfs-init`; for R2 create it in the dashboard first)
 
 Common:
 
@@ -24,8 +31,8 @@ Common:
 ]`
 - `EXECUTOR_MANAGER_URL`: Executor Manager URL, e.g. `http://executor-manager:8001`
 - `S3_PUBLIC_ENDPOINT`: public S3 URL for browser presigned URLs (local: `http://localhost:9000`). If unset, falls back to `S3_ENDPOINT`.
-- `S3_REGION` (default `us-east-1`)
-- `S3_FORCE_PATH_STYLE` (default `true`, required for MinIO/RustFS)
+- `S3_REGION` (default `us-east-1`; Cloudflare R2 usually recommends `auto`)
+- `S3_FORCE_PATH_STYLE` (default `true` for MinIO/RustFS; Cloudflare R2 usually recommends `false`)
 - `S3_PRESIGN_EXPIRES`: presigned URL expiry in seconds (default `300`)
 - `OPENAI_API_KEY`: optional (used for session title generation; disabled if not set)
 - `OPENAI_BASE_URL`: optional (custom OpenAI-compatible gateway)
@@ -52,6 +59,7 @@ Required (otherwise it will not start or cannot dispatch tasks):
 - `EXECUTOR_PUBLISHED_HOST`: host used to access executor containers mapped to host ports (bare metal: `localhost`; in Compose: `host.docker.internal`)
 - `WORKSPACE_ROOT`: workspace root (**must be a host path**, bind-mounted into executor containers)
 - `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET`: used to export workspaces to object storage
+  - Cloudflare R2 usually recommends: `S3_REGION=auto`, `S3_FORCE_PATH_STYLE=false`
 
 Execution model (required to run tasks):
 
@@ -114,9 +122,11 @@ Note: the following variables are also **build-time** and are inlined into the o
 - `POSTGRES_PASSWORD` (default `postgres`)
 - `POSTGRES_PORT` (default `5432`, host-mapped port)
 
-## RustFS (S3-compatible storage)
+## Local RustFS (S3-compatible storage, optional)
 
-Docker Compose uses `rustfs/rustfs:latest` as the local S3-compatible implementation (service name `rustfs`). To replace it with another S3-compatible service, adjust image variables and ensure Backend/Executor Manager `S3_*` are valid.
+`docker-compose.yml` uses `rustfs/rustfs:latest` as the local S3-compatible implementation (service name `rustfs`). If you use Cloudflare R2 (or any external S3-compatible storage), use `docker-compose.r2.yml` and you can ignore this section.
+
+To replace it with another S3-compatible service, adjust image variables and ensure Backend/Executor Manager `S3_*` are valid.
 
 - `RUSTFS_IMAGE`: storage image (default `rustfs/rustfs:latest`)
 - `S3_PORT` (default `9000`)

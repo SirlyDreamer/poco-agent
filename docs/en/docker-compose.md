@@ -1,13 +1,19 @@
-# Docker Compose Quickstart
+# Docker Compose Guide
+
+This repo ships two Compose files:
+
+- `docker-compose.yml`: all-in-one local setup (includes `rustfs` as local S3-compatible storage)
+- `docker-compose.r2.yml`: lighter setup (no `rustfs`; use Cloudflare R2 / any S3-compatible storage)
 
 `docker-compose.yml` includes:
 
 - `backend` (FastAPI)
-- `executor-manager` (FastAPI + APScheduler, spawns `executor` containers via Docker API)
-- `executor` (debug only; not started by default, manager creates it dynamically)
+- `executor-manager` (FastAPI + APScheduler; spawns `executor` containers via Docker API)
 - `frontend` (Next.js)
 - `postgres`
 - `rustfs` (default `rustfs/rustfs:latest`, S3-compatible) + `rustfs-init` (optional bucket creation)
+
+> Note: there is no long-running `executor` service in Compose. Executors are created on-demand by `executor-manager`.
 
 ## Prerequisites
 
@@ -15,9 +21,9 @@
 - Docker Compose v2 (`docker compose`)
 - If GHCR images are private: `docker login ghcr.io`
 
-## Recommended: Bootstrap Script (first run)
+## Recommended: Bootstrap Script (first run, local rustfs only)
 
-For first-time setup, use the script to prepare `.env`, directories, permissions, pull images, and create the bucket:
+If you're using local `rustfs` (`docker-compose.yml`), use the script to prepare `.env`, directories, permissions, pull images, and create the bucket:
 
 ```bash
 ./scripts/quickstart.sh
@@ -43,6 +49,31 @@ After running the script, check `.env` and fill required values (e.g. `ANTHROPIC
 
 If you prefer manual steps, continue below.
 
+## Lighter Setup: Cloudflare R2 (or any S3-compatible storage)
+
+If you don't want to run `rustfs` locally, use `docker-compose.r2.yml` and configure external object storage in `.env` (the bucket must already exist).
+
+Typical R2 config:
+
+```bash
+# Cloudflare R2 (S3-compatible)
+S3_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+S3_REGION=auto
+S3_BUCKET=<bucket-name>
+S3_ACCESS_KEY=<r2-access-key-id>
+S3_SECRET_KEY=<r2-secret-access-key>
+S3_FORCE_PATH_STYLE=false
+
+# Optional: public endpoint for presigned URLs; defaults to S3_ENDPOINT if unset
+# S3_PUBLIC_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+```
+
+Start (no rustfs):
+
+```bash
+docker compose -f docker-compose.r2.yml up -d
+```
+
 ## Manual Start (local / self-hosted)
 
 Run in the repo root:
@@ -51,7 +82,9 @@ Run in the repo root:
 docker compose up -d
 ```
 
-By default it pulls `backend` / `executor-manager` / `frontend` from GHCR and Postgres/RustFS images. The `executor` service is not started by default (`debug` profile), but `executor-manager` will start `EXECUTOR_IMAGE` when running tasks (it may auto-pull if missing).
+By default it pulls `backend` / `executor-manager` / `frontend` from GHCR and Postgres/RustFS images. When running tasks, `executor-manager` will start `EXECUTOR_IMAGE` dynamically (it may auto-pull if missing).
+
+> Note: the current `docker-compose.yml` does not define a standalone `executor` service; executors are created by `executor-manager`.
 
 To pin versions (e.g. `v0.1.0`):
 
@@ -69,16 +102,7 @@ docker compose up -d
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000` (`/docs`)
 - Executor Manager: `http://localhost:8001` (`/docs`)
-- RustFS(S3): `http://localhost:9000` (Console: `http://localhost:9001`)
-- Executor (debug):
-  - API: `http://localhost:8002/health`
-  - noVNC / code-server: `http://localhost:8081`
-
-Enable debug executor (optional, only if you want direct access):
-
-```bash
-docker compose --profile debug up -d executor
-```
+- RustFS(S3) (only `docker-compose.yml`): `http://localhost:9000` (Console: `http://localhost:9001`)
 
 ## Key Notes (important)
 
@@ -91,7 +115,7 @@ docker compose --profile debug up -d executor
 
 - `CALLBACK_BASE_URL` defaults to `http://host.docker.internal:8001`
 - Executors are created outside the compose network, so they call back through host-mapped ports
-- Compose adds `host.docker.internal:host-gateway` for `executor-manager`/`executor` (works on Linux too)
+- `executor-manager` injects `host.docker.internal:host-gateway` when creating executor containers; Compose also adds it for the manager container itself (works on Linux too)
 
 3. Workspace directory:
 
@@ -99,7 +123,7 @@ docker compose --profile debug up -d executor
 - The directory is bind-mounted into executor containers at `/workspace`
 - `tmp_workspace/` is already in the repo and ignored by git (`tmp_workspace/.gitignore`)
 
-4. RustFS data directory permissions (common on Linux):
+4. RustFS data directory permissions (common on Linux, `docker-compose.yml` only):
 
 - `rustfs` bind-mounts `${RUSTFS_DATA_DIR}` to `/data`
 - Default `RUSTFS_DATA_DIR=./oss_data` (repo root)
@@ -112,12 +136,15 @@ mkdir -p oss_data
 sudo chown -R 10001:10001 oss_data
 ```
 
-5. Public URL for RustFS presigned URLs:
+5. Public URL for presigned URLs:
 
-- Backend uses `S3_PUBLIC_ENDPOINT` to generate browser-accessible presigned URLs; Compose default is `http://localhost:9000`
-- If you access RustFS via a domain or non-9000 port, update `S3_PUBLIC_ENDPOINT`
+- Backend uses `S3_PUBLIC_ENDPOINT` to generate browser-accessible presigned URLs:
+  - local rustfs (`docker-compose.yml`) default is `http://localhost:9000`
+  - Cloudflare R2 (`docker-compose.r2.yml`) is typically the same as `S3_ENDPOINT`, or your custom domain
 
 ## Common Operations
+
+> If you use `docker-compose.r2.yml`, add `-f docker-compose.r2.yml` to the commands below.
 
 View logs:
 
@@ -150,7 +177,7 @@ Most configuration is via environment variables (e.g. `ANTHROPIC_AUTH_TOKEN`, `S
 
 See: `./configuration.md`.
 
-## Optional: auto-create bucket
+## Optional: auto-create bucket (`docker-compose.yml` only)
 
 `rustfs-init` is not started by default (to avoid startup blocking due to OSS image/permission differences). To create `S3_BUCKET` automatically:
 

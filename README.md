@@ -66,7 +66,7 @@ Join our WeChat group for updates and discussion:
 
 ## Quickstart (Docker Compose)
 
-Recommended for first-time setup (prepares `.env`, directories, permissions, pulls executor image, and creates the bucket):
+Recommended for first-time setup (prepares `.env`, directories, permissions, pulls executor image, and creates the bucket; uses local `rustfs` by default):
 
 ```bash
 ./scripts/quickstart.sh
@@ -78,6 +78,12 @@ Manual start:
 
 ```bash
 docker compose up -d
+```
+
+If you want a lighter setup and use Cloudflare R2 (or any external S3-compatible storage), configure `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET` in `.env` (bucket must already exist), then run:
+
+```bash
+docker compose -f docker-compose.r2.yml up -d
 ```
 
 > **Note**: The Executor Manager dynamically creates executor containers. The bootstrap script pulls the executor image by default. If you skip the script, you can pull it manually:

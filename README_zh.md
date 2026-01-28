@@ -62,7 +62,7 @@ Demo3：移动端也能流畅使用。
 
 ## 快速开始（Docker Compose）
 
-首次推荐使用一键初始化脚本（准备 `.env`、目录/权限、拉取 executor 镜像并创建 bucket）：
+首次推荐使用一键初始化脚本（准备 `.env`、目录/权限、拉取 executor 镜像并创建 bucket；默认使用本地 `rustfs`）：
 
 ```bash
 ./scripts/quickstart.sh
@@ -74,6 +74,12 @@ Demo3：移动端也能流畅使用。
 
 ```bash
 docker compose up -d
+```
+
+如果你希望更轻量、并使用 Cloudflare R2（或其他外部 S3 兼容存储），请先在 `.env` 配置 `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET`（bucket 需提前创建），然后使用：
+
+```bash
+docker compose -f docker-compose.r2.yml up -d
 ```
 
 > **注意**：Executor Manager 会动态创建 executor 容器。脚本默认会拉取 executor 镜像；若不使用脚本，可手动拉取：

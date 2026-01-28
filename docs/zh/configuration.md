@@ -1,6 +1,11 @@
 # 配置指南（环境变量）
 
-本项目包含 4 个服务：`backend` / `executor-manager` / `executor` / `frontend`，以及 2 个依赖：`postgres` / `rustfs`（S3 兼容对象存储）。
+本项目包含 4 个服务：`backend` / `executor-manager` / `executor` / `frontend`。
+
+依赖项包括：
+
+- `postgres`
+- S3 兼容对象存储（可选本地 `rustfs`，也可使用 Cloudflare R2 等云服务）
 
 下面列出各服务常用环境变量（含含义与默认值）。在生产环境请务必替换所有 `change-this-*`、弱口令与默认密钥。
 
@@ -11,9 +16,11 @@
 - `DATABASE_URL`：数据库连接串（PostgreSQL），示例：`postgresql://postgres:postgres@postgres:5432/poco`
 - `SECRET_KEY`：后端密钥（用于安全相关逻辑）
 - `INTERNAL_API_TOKEN`：内部调用鉴权 token（Executor Manager 调用 Backend 内部接口会用到）
-- `S3_ENDPOINT`：S3 兼容服务地址，示例：`http://rustfs:9000`
+- `S3_ENDPOINT`：S3 兼容服务地址
+  - 本地 rustfs：`http://rustfs:9000`
+  - Cloudflare R2：`https://<accountid>.r2.cloudflarestorage.com`
 - `S3_ACCESS_KEY` / `S3_SECRET_KEY`：S3 访问凭证
-- `S3_BUCKET`：S3 bucket 名称（需存在；Docker Compose 默认用 init 容器创建）
+- `S3_BUCKET`：S3 bucket 名称（需存在；本地 rustfs 可用 `rustfs-init` 创建；R2 请在控制台提前创建）
 
 常用：
 
@@ -21,8 +28,8 @@
 - `CORS_ORIGINS`：允许来源列表（JSON 数组），示例：`["http://localhost:3000","http://127.0.0.1:3000"]`
 - `EXECUTOR_MANAGER_URL`：Executor Manager 地址，示例：`http://executor-manager:8001`
 - `S3_PUBLIC_ENDPOINT`：对外可访问的 S3 地址，用于生成给浏览器的预签名 URL（本地可用 `http://localhost:9000`）。未设置则使用 `S3_ENDPOINT`
-- `S3_REGION`（默认 `us-east-1`）
-- `S3_FORCE_PATH_STYLE`（默认 `true`，对 MinIO/RustFS 一般需要）
+- `S3_REGION`（默认 `us-east-1`；Cloudflare R2 通常建议设为 `auto`）
+- `S3_FORCE_PATH_STYLE`（默认 `true`，对 MinIO/RustFS 一般需要；Cloudflare R2 通常建议设为 `false`）
 - `S3_PRESIGN_EXPIRES`：预签名 URL 过期秒数（默认 `300`）
 - `OPENAI_API_KEY`：可选（用于会话标题自动生成等；未设置则禁用标题生成）
 - `OPENAI_BASE_URL`：可选（自定义 OpenAI 兼容网关）
@@ -49,6 +56,7 @@
 - `EXECUTOR_PUBLISHED_HOST`：Executor Manager 访问“已映射到宿主机端口”的 Executor 容器时使用的 host（本地裸跑一般是 `localhost`；Compose 内推荐 `host.docker.internal`）
 - `WORKSPACE_ROOT`：工作区根目录（**必须是宿主机路径**，因为会被 bind mount 到 Executor 容器）
 - `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET`：用于导出 workspace 到对象存储（否则相关接口会失败）
+  - Cloudflare R2 通常建议：`S3_REGION=auto`，`S3_FORCE_PATH_STYLE=false`
 
 执行模型（跑任务时必需）：
 
@@ -111,9 +119,11 @@ Frontend 现在默认通过 Next.js 的 **同源 API 代理**（`/api/v1/* -> Ba
 - `POSTGRES_PASSWORD`（默认 `postgres`）
 - `POSTGRES_PORT`（默认 `5432`，对宿主机映射端口）
 
-## RustFS（S3 兼容对象存储）
+## 本地 RustFS（S3 兼容对象存储，可选）
 
-Docker Compose 默认使用 `rustfs/rustfs:latest` 作为本地 S3 兼容实现（服务名为 `rustfs`）。如需替换为其他 S3 兼容实现，请按镜像参数调整，并保证 Backend/Executor Manager 使用的 `S3_*` 可用。
+`docker-compose.yml` 默认使用 `rustfs/rustfs:latest` 作为本地 S3 兼容实现（服务名为 `rustfs`）。如果你使用 Cloudflare R2（或其他外部 S3 兼容服务），可以改用 `docker-compose.r2.yml`，此节可忽略。
+
+如需替换为其他本地 S3 兼容实现，请按镜像参数调整，并保证 Backend/Executor Manager 使用的 `S3_*` 可用。
 
 - `RUSTFS_IMAGE`：对象存储镜像（默认 `rustfs/rustfs:latest`）
 - `S3_PORT`（默认 `9000`）

@@ -1,13 +1,19 @@
-# Docker Compose 一键启动
+# Docker Compose 启动指南
+
+仓库提供两套 Compose 文件：
+
+- `docker-compose.yml`：本地一体化（含 `rustfs`，用于本地 S3 兼容对象存储）
+- `docker-compose.r2.yml`：更轻量（不含 `rustfs`，适合接入 Cloudflare R2 / 其他 S3 兼容服务）
 
 `docker-compose.yml` 已包含：
 
 - `backend`（FastAPI）
-- `executor-manager`（FastAPI + APScheduler，会通过 Docker API 拉起 `executor` 容器）
-- `executor`（仅用于本地调试；默认不启动，真正执行时由 manager 动态创建）
+- `executor-manager`（FastAPI + APScheduler，会通过 Docker API 动态拉起 `executor` 容器）
 - `frontend`（Next.js）
 - `postgres`
 - `rustfs`（默认 `rustfs/rustfs:latest`，S3 兼容）+ `rustfs-init`（创建 bucket，可选）
+
+> 说明：Compose 里不会长期运行 `executor` 服务；执行任务时由 `executor-manager` 通过 Docker API 动态创建 executor 容器。
 
 ## 前置条件
 
@@ -15,9 +21,9 @@
 - Docker Compose v2（`docker compose` 命令）
 - 若 GHCR 镜像为私有：先执行 `docker login ghcr.io`
 
-## 推荐：一键初始化脚本（首次运行）
+## 推荐：一键初始化脚本（首次运行，仅适用于本地 rustfs）
 
-如果是首次配置，推荐使用脚本自动完成 `.env`、目录、权限、镜像拉取与 bucket 创建：
+如果是首次配置、并且你使用本地 `rustfs`（`docker-compose.yml`），推荐使用脚本自动完成 `.env`、目录、权限、镜像拉取与 bucket 创建：
 
 ```bash
 ./scripts/quickstart.sh
@@ -43,6 +49,31 @@
 
 如果你更偏好手动启动，继续按下方步骤执行。
 
+## 轻量方案：使用 Cloudflare R2（或其他 S3 兼容服务）
+
+当你不想在本地启动 `rustfs`，可以改用 `docker-compose.r2.yml`，并在 `.env` 里配置外部对象存储（bucket 需要提前创建好）。
+
+典型的 R2 配置示例：
+
+```bash
+# Cloudflare R2 (S3-compatible)
+S3_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+S3_REGION=auto
+S3_BUCKET=<bucket-name>
+S3_ACCESS_KEY=<r2-access-key-id>
+S3_SECRET_KEY=<r2-secret-access-key>
+S3_FORCE_PATH_STYLE=false
+
+# 可选：用于生成给浏览器的预签名 URL；不填则默认用 S3_ENDPOINT
+# S3_PUBLIC_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+```
+
+启动（不会启动 rustfs）：
+
+```bash
+docker compose -f docker-compose.r2.yml up -d
+```
+
 ## 手动启动（本地开发/自部署）
 
 在仓库根目录执行：
@@ -51,7 +82,9 @@
 docker compose up -d
 ```
 
-默认会从 GHCR（`ghcr.io`）拉取 `backend` / `executor-manager` / `frontend` 镜像，并拉取 Postgres/RustFS 镜像。`executor` 服务默认不启动（`debug` profile），但 `executor-manager` 在执行任务时会使用 `EXECUTOR_IMAGE` 拉起 executor 容器（本机缺镜像时会自动 pull）。
+默认会从 GHCR（`ghcr.io`）拉取 `backend` / `executor-manager` / `frontend` 镜像，并拉取 Postgres/RustFS 镜像。执行任务时，`executor-manager` 会使用 `EXECUTOR_IMAGE` 动态拉起 executor 容器（本机缺镜像时会自动 pull）。
+
+> 注意：当前仓库的 `docker-compose.yml` 不包含单独的 `executor` 服务；executor 容器由 `executor-manager` 动态创建。
 
 如果你要固定版本（例如 `v0.1.0`），可通过环境变量覆盖镜像 tag（示例）：
 
@@ -69,16 +102,7 @@ docker compose up -d
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000`（OpenAPI: `/docs`）
 - Executor Manager: `http://localhost:8001`（OpenAPI: `/docs`）
-- RustFS(S3): `http://localhost:9000`（Console: `http://localhost:9001`）
-- Executor（调试用）:
-  - API: `http://localhost:8002/health`
-  - noVNC / code-server: `http://localhost:8081`
-
-启用调试 executor（可选，仅当你需要直接访问 executor 服务时）：
-
-```bash
-docker compose --profile debug up -d executor
-```
+- RustFS(S3)（仅 `docker-compose.yml`）：`http://localhost:9000`（Console: `http://localhost:9001`）
 
 ## 关键说明（很重要）
 
@@ -91,7 +115,7 @@ docker compose --profile debug up -d executor
 
 - `CALLBACK_BASE_URL` 默认是 `http://host.docker.internal:8001`
 - 这是因为动态创建的 executor 容器默认不在 compose 网络里，需要通过“宿主机端口映射”回调到 manager
-- Compose 已为 `executor-manager`/`executor` 配置 `host.docker.internal:host-gateway`（Linux 下也可用）
+- `executor-manager` 会在创建 executor 容器时注入 `host.docker.internal:host-gateway`；Compose 也为 `executor-manager` 容器配置了该映射（Linux 下也可用）
 
 3. 工作区目录（Workspace）：
 
@@ -99,7 +123,7 @@ docker compose --profile debug up -d executor
 - 该目录会被 Executor Manager 创建的 executor 容器以 bind mount 方式挂载到 `/workspace`
 - `tmp_workspace/` 在仓库里已存在，并且通过 `tmp_workspace/.gitignore` 忽略内容，不会污染 git
 
-4. RustFS 数据目录权限（Linux 常见坑）：
+4. RustFS 数据目录权限（Linux 常见坑，仅 `docker-compose.yml`）：
 
 - `rustfs` 会把 `${RUSTFS_DATA_DIR}` bind mount 到容器的 `/data`
 - 默认 `RUSTFS_DATA_DIR=./oss_data`（仓库根目录）
@@ -112,12 +136,15 @@ mkdir -p oss_data
 sudo chown -R 10001:10001 oss_data
 ```
 
-5. RustFS 预签名 URL 对外地址：
+5. 预签名 URL 对外地址：
 
-- Backend 会用 `S3_PUBLIC_ENDPOINT` 生成给浏览器访问的预签名 URL，Compose 默认是 `http://localhost:9000`
-- 如果你通过域名/非 9000 端口访问 RustFS，需要调整 `S3_PUBLIC_ENDPOINT`
+- Backend 会用 `S3_PUBLIC_ENDPOINT` 生成给浏览器访问的预签名 URL：
+  - 本地 rustfs（`docker-compose.yml`）默认是 `http://localhost:9000`
+  - Cloudflare R2（`docker-compose.r2.yml`）通常保持与 `S3_ENDPOINT` 一致，或填你的自定义域名
 
 ## 常用操作
+
+> 如果你使用的是 `docker-compose.r2.yml`，请在下列命令中追加 `-f docker-compose.r2.yml`。
 
 查看日志：
 
@@ -150,7 +177,7 @@ docker compose down -v
 
 详见：`./configuration.md`。
 
-## 可选：自动创建 bucket
+## 可选：自动创建 bucket（仅 `docker-compose.yml`）
 
 默认启动不会运行 `rustfs-init`（避免不同 OSS 镜像/权限差异导致阻塞启动）。如需自动创建 `S3_BUCKET`：
 

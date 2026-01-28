@@ -1,0 +1,143 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-poco}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-poco}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    # Default to pulling from GHCR; override via BACKEND_IMAGE if needed.
+    image: ${BACKEND_IMAGE:-ghcr.io/poco-ai/poco-backend:latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
+
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-poco}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}
+      SECRET_KEY: ${BACKEND_SECRET_KEY:-change-this-secret-key-in-production}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change-this-token-in-production}
+      EXECUTOR_MANAGER_URL: http://executor-manager:8001
+
+      # Cloudflare R2 (or any S3-compatible service). You must provide these.
+      # R2 usually prefers: S3_REGION=auto, S3_FORCE_PATH_STYLE=false.
+      S3_ENDPOINT: ${S3_ENDPOINT:?set S3_ENDPOINT (e.g. https://<accountid>.r2.cloudflarestorage.com)}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+      S3_PRESIGN_EXPIRES: ${S3_PRESIGN_EXPIRES:-300}
+
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_DEFAULT_MODEL: ${OPENAI_DEFAULT_MODEL:-gpt-4o-mini}
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-100}
+
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_TO_FILE: ${LOG_TO_FILE:-false}
+      LOG_DIR: ${LOG_DIR:-./logs}
+      LOG_BACKUP_COUNT: ${LOG_BACKUP_COUNT:-14}
+      LOG_SQL: ${LOG_SQL:-false}
+      UVICORN_ACCESS_LOG: ${UVICORN_ACCESS_LOG:-false}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+
+  executor-manager:
+    # Default to pulling from GHCR; override via EXECUTOR_MANAGER_IMAGE if needed.
+    image: ${EXECUTOR_MANAGER_IMAGE:-ghcr.io/poco-ai/poco-executor-manager:latest}
+    restart: unless-stopped
+    user: "${EXECUTOR_UID:-1000}:${EXECUTOR_GID:-1000}"
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8001
+
+      BACKEND_URL: ${BACKEND_URL:-http://backend:8000}
+      # Must be reachable from *executor containers* spawned by the manager.
+      CALLBACK_BASE_URL: ${CALLBACK_BASE_URL:-http://host.docker.internal:8001}
+      CALLBACK_TOKEN: ${CALLBACK_TOKEN:-change-this-token-in-production}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change-this-token-in-production}
+
+      ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:-}
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-claude-sonnet-4-20250514}
+
+      # Image used by the manager to spawn executor containers via docker.sock.
+      EXECUTOR_IMAGE: ${EXECUTOR_IMAGE:-ghcr.io/poco-ai/poco-executor:latest}
+      # Manager accesses executor containers through published host ports.
+      EXECUTOR_PUBLISHED_HOST: ${EXECUTOR_PUBLISHED_HOST:-host.docker.internal}
+
+      WORKSPACE_ROOT: ${PWD}/tmp_workspace
+
+      MAX_CONCURRENT_TASKS: ${MAX_CONCURRENT_TASKS:-5}
+      TASK_PULL_ENABLED: ${TASK_PULL_ENABLED:-true}
+      TASK_PULL_INTERVAL_SECONDS: ${TASK_PULL_INTERVAL_SECONDS:-2}
+      TASK_CLAIM_LEASE_SECONDS: ${TASK_CLAIM_LEASE_SECONDS:-180}
+
+      WORKSPACE_CLEANUP_ENABLED: ${WORKSPACE_CLEANUP_ENABLED:-false}
+      WORKSPACE_ARCHIVE_ENABLED: ${WORKSPACE_ARCHIVE_ENABLED:-true}
+      WORKSPACE_ARCHIVE_DAYS: ${WORKSPACE_ARCHIVE_DAYS:-7}
+      WORKSPACE_IGNORE_DOT_FILES: ${WORKSPACE_IGNORE_DOT_FILES:-true}
+
+      S3_ENDPOINT: ${S3_ENDPOINT:?set S3_ENDPOINT}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_TO_FILE: ${LOG_TO_FILE:-false}
+      LOG_DIR: ${LOG_DIR:-./logs}
+      LOG_BACKUP_COUNT: ${LOG_BACKUP_COUNT:-14}
+      UVICORN_ACCESS_LOG: ${UVICORN_ACCESS_LOG:-false}
+    # Allow the non-root "app" user (APP_UID) to access the host Docker socket.
+    # On Linux the socket is usually `root:<docker_gid>` with mode 660.
+    group_add:
+      - "${DOCKER_GID:-0}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./tmp_workspace:${PWD}/tmp_workspace
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${EXECUTOR_MANAGER_PORT:-8001}:8001"
+
+  frontend:
+    # Default to pulling from GHCR; override via FRONTEND_IMAGE if needed.
+    image: ${FRONTEND_IMAGE:-ghcr.io/poco-ai/poco-frontend:latest}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      # Runtime backend URL for the Next.js API proxy (/api/v1/* -> backend).
+      BACKEND_URL: ${BACKEND_URL:-http://backend:8000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+volumes:
+  postgres_data:
