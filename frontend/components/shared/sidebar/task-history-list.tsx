@@ -173,7 +173,7 @@ function DraggableTask({
 
             {/* 第一栏：状态指示器 */}
             {task.status === "running" ? (
-              <Loader2 className="size-3 shrink-0 animate-spin text-chart-2" />
+              <Loader2 className="size-3 shrink-0 animate-spin text-info" />
             ) : (
               <span
                 className={cn(

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { sendMessageAction } from "@/features/chat/actions/session-actions";
-import { getMessagesAction } from "@/features/chat/actions/query-actions";
+import {
+  getMessagesAction,
+  getRunsBySessionAction,
+} from "@/features/chat/actions/query-actions";
 import type {
   ChatMessage,
   ExecutionSession,
@@ -19,6 +22,7 @@ interface UseChatMessagesReturn {
   isTyping: boolean;
   showTypingIndicator: boolean;
   sendMessage: (content: string, attachments?: InputFile[]) => Promise<void>;
+  internalContextsByUserMessageId: Record<string, string[]>;
 }
 
 /**
@@ -39,8 +43,45 @@ export function useChatMessages({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [internalContextsByUserMessageId, setInternalContextsByUserMessageId] =
+    useState<Record<string, string[]>>({});
 
   const lastLoadedSessionIdRef = useRef<string | null>(null);
+  const realUserMessageIdsRef = useRef<number[] | null>(null);
+
+  const refreshRealUserMessageIds = useCallback(async () => {
+    if (!session?.session_id) return;
+    try {
+      const runs = await getRunsBySessionAction({
+        sessionId: session.session_id,
+      });
+      const ids = runs
+        .map((r) => r.user_message_id)
+        .filter((id): id is number => typeof id === "number" && id > 0);
+
+      realUserMessageIdsRef.current = ids;
+    } catch (error) {
+      console.error("[Chat] Failed to load runs:", error);
+      // Keep as null so message rendering falls back to showing all user messages.
+      realUserMessageIdsRef.current = null;
+    }
+  }, [session?.session_id]);
+
+  const fetchMessagesWithFilter = useCallback(
+    async (sessionId: string) => {
+      // Ensure we have a whitelist of real user input message ids (per run).
+      if (realUserMessageIdsRef.current === null) {
+        await refreshRealUserMessageIds();
+      }
+
+      const realUserMessageIds = realUserMessageIdsRef.current ?? undefined;
+      return getMessagesAction({
+        sessionId,
+        realUserMessageIds,
+      });
+    },
+    [refreshRealUserMessageIds],
+  );
 
   // Helper to merge new server messages with local optimistic messages
   const mergeMessages = useCallback(
@@ -112,15 +153,26 @@ export function useChatMessages({
         await sendMessageAction({ sessionId, content, attachments });
         console.log("[Chat] Message sent successfully");
 
+        // Refresh runs so multi-turn conversations only show real user inputs.
+        await refreshRealUserMessageIds();
+
         // Fetch latest messages immediately to confirm sync
-        const serverMessages = await getMessagesAction({ sessionId });
-        setMessages((prev) => mergeMessages(prev, serverMessages));
+        const server = await fetchMessagesWithFilter(sessionId);
+        setInternalContextsByUserMessageId(
+          server.internalContextsByUserMessageId,
+        );
+        setMessages((prev) => mergeMessages(prev, server.messages));
       } catch (error) {
         console.error("[Chat] Failed to send message or get reply:", error);
         setIsTyping(false);
       }
     },
-    [session, mergeMessages],
+    [
+      session,
+      mergeMessages,
+      refreshRealUserMessageIds,
+      fetchMessagesWithFilter,
+    ],
   );
 
   // Load and poll for messages
@@ -132,19 +184,22 @@ export function useChatMessages({
       setIsLoadingHistory(true);
       setMessages([]);
       setIsTyping(false);
+      setInternalContextsByUserMessageId({});
+      realUserMessageIdsRef.current = null;
       lastLoadedSessionIdRef.current = session.session_id;
     }
 
     const fetchMessages = async () => {
       try {
-        const historyMessages = await getMessagesAction({
-          sessionId: session.session_id,
-        });
+        const history = await fetchMessagesWithFilter(session.session_id);
+        setInternalContextsByUserMessageId(
+          history.internalContextsByUserMessageId,
+        );
 
         setMessages((prev) => {
           // If it's the first load (empty prev), just set it
           // Otherwise merge
-          return mergeMessages(prev, historyMessages);
+          return mergeMessages(prev, history.messages);
         });
       } catch (error) {
         console.error("[Chat] Failed to load messages:", error);
@@ -175,7 +230,13 @@ export function useChatMessages({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [session?.session_id, session?.status, mergeMessages, pollingInterval]);
+  }, [
+    session?.session_id,
+    session?.status,
+    mergeMessages,
+    pollingInterval,
+    fetchMessagesWithFilter,
+  ]);
 
   // Manage isTyping state based on messages
   useEffect(() => {
@@ -219,5 +280,6 @@ export function useChatMessages({
     isTyping,
     showTypingIndicator,
     sendMessage,
+    internalContextsByUserMessageId,
   };
 }

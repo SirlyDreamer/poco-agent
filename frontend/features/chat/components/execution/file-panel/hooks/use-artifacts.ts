@@ -6,6 +6,62 @@ export type ViewMode = "artifacts" | "document";
 
 const normalizePath = (value: string) => value.replace(/^\/+/, "");
 
+const PRESIGNED_URL_REFRESH_BUFFER_MS = 30_000;
+
+const ensureUrl = (value?: string | null) => {
+  if (!value) return null;
+  try {
+    return new URL(
+      value,
+      typeof window !== "undefined" ? window.location.origin : undefined,
+    );
+  } catch {
+    return null;
+  }
+};
+
+const parseAmzDate = (value: string): number | null => {
+  const match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(value);
+  if (!match) return null;
+  const [, year, month, day, hour, minute, second] = match;
+  return Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second),
+  );
+};
+
+const getPresignedUrlExpiresAt = (rawUrl?: string | null): number | null => {
+  const url = ensureUrl(rawUrl);
+  if (!url) return null;
+  const params = url.searchParams;
+
+  const amzDate =
+    params.get("X-Amz-Date") ?? params.get("x-amz-date") ?? undefined;
+  const amzExpires =
+    params.get("X-Amz-Expires") ?? params.get("x-amz-expires") ?? undefined;
+
+  if (amzDate && amzExpires) {
+    const baseMs = parseAmzDate(amzDate);
+    const expiresSec = Number(amzExpires);
+    if (baseMs && Number.isFinite(expiresSec) && expiresSec >= 0) {
+      return baseMs + expiresSec * 1000;
+    }
+  }
+
+  const legacyExpires =
+    params.get("Expires") ?? params.get("expires") ?? undefined;
+  if (legacyExpires) {
+    const epochSec = Number(legacyExpires);
+    if (Number.isFinite(epochSec) && epochSec > 0) return epochSec * 1000;
+  }
+
+  return null;
+};
+
 const isActiveStatus = (status?: UseArtifactsOptions["sessionStatus"]) =>
   status === "running" || status === "accepted";
 
@@ -51,6 +107,7 @@ interface UseArtifactsReturn {
   selectFile: (file: FileNode) => void;
   closeViewer: () => void;
   refreshFiles: () => Promise<void>;
+  ensureFreshFile: (file: FileNode) => Promise<FileNode | undefined>;
 }
 
 /**
@@ -103,6 +160,29 @@ export function useArtifacts({
     await fetchFiles();
   }, [fetchFiles]);
 
+  const ensureFreshFile = useCallback(
+    async (file: FileNode): Promise<FileNode | undefined> => {
+      if (!sessionId) return file;
+
+      const maybeRefresh = (() => {
+        if (!file.url) return true;
+        const expiresAt = getPresignedUrlExpiresAt(file.url);
+        if (!expiresAt) return false;
+        return expiresAt - Date.now() <= PRESIGNED_URL_REFRESH_BUFFER_MS;
+      })();
+
+      if (!maybeRefresh) return file;
+
+      try {
+        const updated = await fetchFiles();
+        return findFileByPath(updated, file.path) ?? file;
+      } catch {
+        return file;
+      }
+    },
+    [sessionId, fetchFiles],
+  );
+
   // Initial fetch when sessionId becomes available.
   useEffect(() => {
     setViewMode("artifacts");
@@ -144,6 +224,25 @@ export function useArtifacts({
       }
     );
   }, [files, selectedPath]);
+
+  // If the selected file URL is expired/expiring, refresh once so the viewer gets a fresh presigned URL.
+  const lastExpiryRefreshAtRef = useRef(0);
+  useEffect(() => {
+    if (!sessionId) return;
+    if (viewMode !== "document") return;
+    if (!selectedFile) return;
+    if (!selectedFile.url) return;
+
+    const expiresAt = getPresignedUrlExpiresAt(selectedFile.url);
+    if (!expiresAt) return;
+    if (expiresAt - Date.now() > PRESIGNED_URL_REFRESH_BUFFER_MS) return;
+
+    const now = Date.now();
+    if (now - lastExpiryRefreshAtRef.current < 2000) return;
+    lastExpiryRefreshAtRef.current = now;
+
+    void fetchFiles();
+  }, [sessionId, viewMode, selectedFile, fetchFiles]);
 
   // If the user opens a file before its preview URL is ready, poll until it becomes available.
   useEffect(() => {
@@ -198,5 +297,6 @@ export function useArtifacts({
     selectFile,
     closeViewer,
     refreshFiles,
+    ensureFreshFile,
   };
 }

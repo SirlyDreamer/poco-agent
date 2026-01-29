@@ -43,7 +43,7 @@ function ToolStep({ toolUse, toolResult, isOpen, onToggle }: ToolStepProps) {
             ) : isError ? (
               <XCircle className="size-4 text-destructive" />
             ) : (
-              <CheckCircle2 className="size-4 text-green-500" />
+              <CheckCircle2 className="size-4 text-success" />
             )}
           </div>
 
@@ -95,7 +95,7 @@ function ToolStep({ toolUse, toolResult, isOpen, onToggle }: ToolStepProps) {
                   className={cn(
                     "p-2 rounded overflow-x-auto text-foreground/90",
                     isError
-                      ? "bg-destructive/10 text-destructive-foreground border border-destructive/20"
+                      ? "bg-destructive/10 text-destructive border border-destructive/20"
                       : "bg-muted/50",
                   )}
                 >
@@ -183,7 +183,7 @@ export function ToolChain({ blocks }: ToolChainProps) {
           {/* Show little badges if collapsed */}
           {!isExpanded && (
             <div className="flex items-center gap-1 ml-auto">
-              <CheckCircle2 className="size-3 text-green-500" />
+              <CheckCircle2 className="size-3 text-success" />
             </div>
           )}
         </CollapsibleTrigger>

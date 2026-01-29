@@ -18,6 +18,12 @@ export type TextBlock = {
   text: string;
 };
 
+export type ThinkingBlock = {
+  _type: "ThinkingBlock";
+  thinking: string;
+  signature?: string;
+};
+
 export type ToolUseBlock = {
   _type: "ToolUseBlock";
   id: string;
@@ -32,7 +38,11 @@ export type ToolResultBlock = {
   is_error: boolean;
 };
 
-export type MessageBlock = TextBlock | ToolUseBlock | ToolResultBlock;
+export type MessageBlock =
+  | TextBlock
+  | ThinkingBlock
+  | ToolUseBlock
+  | ToolResultBlock;
 
 export type ToolCall = {
   id: string;

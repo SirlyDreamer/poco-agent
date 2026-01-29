@@ -41,7 +41,7 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
     return (
       <div className="flex items-center justify-center h-screen bg-background select-text">
         <div className="text-center">
-          <p className="text-red-600 mb-2">Error loading session</p>
+          <p className="text-destructive mb-2">Error loading session</p>
           <p className="text-muted-foreground text-sm">
             {error.message || "Unknown error"}
           </p>

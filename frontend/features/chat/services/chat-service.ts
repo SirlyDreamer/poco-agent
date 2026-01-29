@@ -15,6 +15,7 @@ import type {
   TaskConfig,
   InputFile,
   ConfigSnapshot,
+  RunResponse,
 } from "@/features/chat/types";
 
 interface MessageContentBlock {
@@ -29,6 +30,9 @@ interface MessageContentBlock {
   is_error?: boolean;
   // TextBlock fields
   text?: string;
+  // ThinkingBlock fields
+  thinking?: string;
+  signature?: string;
 }
 
 interface MessageContentShape {
@@ -199,8 +203,32 @@ export const chatService = {
     );
   },
 
-  getMessages: async (sessionId: string): Promise<ChatMessage[]> => {
+  getRunsBySession: async (
+    sessionId: string,
+    params?: { limit?: number; offset?: number },
+  ): Promise<RunResponse[]> => {
+    const query = buildQuery({
+      limit: params?.limit,
+      offset: params?.offset,
+    });
+    return apiClient.get<RunResponse[]>(
+      `${API_ENDPOINTS.runsBySession(sessionId)}${query}`,
+    );
+  },
+
+  getMessages: async (
+    sessionId: string,
+    options?: { realUserMessageIds?: number[] },
+  ): Promise<{
+    messages: ChatMessage[];
+    internalContextsByUserMessageId: Record<string, string[]>;
+  }> => {
     try {
+      const realUserMessageIdSet = new Set(options?.realUserMessageIds ?? []);
+      // If we can't reliably identify "real user inputs" (runs not available),
+      // fall back to showing all user messages and do not build internal contexts.
+      const canClassifyUserMessages = realUserMessageIdSet.size > 0;
+
       const messages = await apiClient.get<
         {
           id: number;
@@ -213,7 +241,9 @@ export const chatService = {
       >(API_ENDPOINTS.sessionMessagesWithFiles(sessionId));
 
       const processedMessages: ChatMessage[] = [];
+      const internalContextsByUserMessageId: Record<string, string[]> = {};
       let currentAssistantMessage: ChatMessage | null = null;
+      let currentTurnUserMessageId: string | null = null;
 
       for (const msg of messages) {
         const contentObj = msg.content as MessageContentShape;
@@ -226,6 +256,7 @@ export const chatService = {
 
         if (msg.role === "assistant" && contentObj.content) {
           const blocks = contentObj.content;
+
           const toolUseBlocks = blocks.filter(
             (b) => b._type === "ToolUseBlock",
           );
@@ -256,7 +287,6 @@ export const chatService = {
               ...existingBlocks,
               ...uiToolBlocks,
             ];
-            continue;
           }
         }
 
@@ -287,6 +317,42 @@ export const chatService = {
           }
         }
 
+        if (msg.role === "assistant" && contentObj.content) {
+          const blocks = contentObj.content;
+          const thinkingBlocks = blocks.filter(
+            (b) => b._type === "ThinkingBlock",
+          );
+
+          const uiThinkingBlocks = thinkingBlocks
+            .map((b) => ({
+              _type: "ThinkingBlock" as const,
+              thinking: cleanText(b.thinking || ""),
+              signature: b.signature,
+            }))
+            .filter((b) => b.thinking.trim().length > 0);
+
+          if (uiThinkingBlocks.length > 0) {
+            if (!currentAssistantMessage) {
+              currentAssistantMessage = {
+                id: msg.id.toString(),
+                role: "assistant",
+                content: [],
+                status: "completed",
+                timestamp: msg.created_at,
+              };
+              processedMessages.push(currentAssistantMessage);
+            }
+
+            const existingBlocks =
+              currentAssistantMessage.content as MessageBlock[];
+
+            currentAssistantMessage.content = [
+              ...existingBlocks,
+              ...uiThinkingBlocks,
+            ];
+          }
+        }
+
         let textContent = "";
         if (contentObj.text) {
           textContent = String(contentObj.text);
@@ -299,7 +365,28 @@ export const chatService = {
 
         if (textContent) {
           if (msg.role === "user") {
+            // A user-role message from the SDK is not always a real user input.
+            // Real user inputs are identified by AgentRun.user_message_id (per turn).
+            const isRealUserMessage = canClassifyUserMessages
+              ? realUserMessageIdSet.has(msg.id)
+              : true;
+
+            if (!isRealUserMessage) {
+              // Keep internal user-role text for optional inline display (debug/UX),
+              // but do not render it as a user bubble.
+              if (currentTurnUserMessageId) {
+                internalContextsByUserMessageId[currentTurnUserMessageId] = [
+                  ...(internalContextsByUserMessageId[
+                    currentTurnUserMessageId
+                  ] || []),
+                  textContent,
+                ];
+              }
+              continue;
+            }
+
             currentAssistantMessage = null;
+            currentTurnUserMessageId = msg.id.toString();
             processedMessages.push({
               id: msg.id.toString(),
               role: "user",
@@ -329,10 +416,13 @@ export const chatService = {
         }
       }
 
-      return processedMessages;
+      return {
+        messages: processedMessages,
+        internalContextsByUserMessageId,
+      };
     } catch (error) {
       console.error("[Chat Service] Failed to get messages:", error);
-      return [];
+      return { messages: [], internalContextsByUserMessageId: {} };
     }
   },
 

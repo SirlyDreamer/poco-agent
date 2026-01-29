@@ -29,6 +29,9 @@ export const API_ENDPOINTS = {
   // Tasks
   tasks: "/tasks",
 
+  // Runs
+  runsBySession: (sessionId: string) => `/runs/session/${sessionId}`,
+
   // Attachments
   attachmentsUpload: "/attachments/upload",
 

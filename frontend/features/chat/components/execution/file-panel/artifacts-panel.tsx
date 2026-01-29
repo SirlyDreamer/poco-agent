@@ -47,11 +47,19 @@ export function ArtifactsPanel({
   sessionStatus,
 }: ArtifactsPanelProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
-  const { files, selectedFile, viewMode, selectFile, closeViewer } =
-    useArtifacts({ sessionId, sessionStatus });
+  const {
+    files,
+    selectedFile,
+    viewMode,
+    selectFile,
+    closeViewer,
+    ensureFreshFile,
+  } = useArtifacts({ sessionId, sessionStatus });
   const mainContent = (() => {
     if (viewMode === "document") {
-      return <DocumentViewer file={selectedFile} />;
+      return (
+        <DocumentViewer file={selectedFile} ensureFreshFile={ensureFreshFile} />
+      );
     }
 
     if (fileChanges.length === 0) {

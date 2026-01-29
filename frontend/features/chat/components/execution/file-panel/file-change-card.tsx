@@ -32,27 +32,27 @@ function getStatusConfig(status: FileChange["status"]) {
     case "added":
       return {
         icon: FilePlus,
-        color: "text-green-600 dark:text-green-400",
+        color: "text-success",
       };
     case "modified":
       return {
         icon: FileEdit,
-        color: "text-blue-600 dark:text-blue-400",
+        color: "text-info",
       };
     case "deleted":
       return {
         icon: FileX,
-        color: "text-red-600 dark:text-red-400",
+        color: "text-destructive",
       };
     case "renamed":
       return {
         icon: GitCompare,
-        color: "text-purple-600 dark:text-purple-400",
+        color: "text-renamed",
       };
     default:
       return {
         icon: FileEdit,
-        color: "text-gray-600 dark:text-gray-400",
+        color: "text-muted-foreground",
       };
   }
 }
@@ -156,14 +156,14 @@ export function FileChangeCard({
       {hasLineChanges && (
         <div className="flex items-center gap-4 px-4 py-2 bg-muted/30 text-xs">
           {addedLines > 0 && (
-            <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 shrink-0">
+            <div className="flex items-center gap-1.5 text-success shrink-0">
               <Plus className="size-3 shrink-0" />
               <span className="font-medium shrink-0">{addedLines}</span>
               <span className="text-muted-foreground shrink-0">行新增</span>
             </div>
           )}
           {deletedLines > 0 && (
-            <div className="flex items-center gap-1.5 text-red-600 dark:text-red-400 shrink-0">
+            <div className="flex items-center gap-1.5 text-destructive shrink-0">
               <Minus className="size-3 shrink-0" />
               <span className="font-medium shrink-0">{deletedLines}</span>
               <span className="text-muted-foreground shrink-0">行删除</span>

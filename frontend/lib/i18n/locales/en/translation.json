@@ -130,7 +130,14 @@
     "askUserPrevious": "Previous",
     "askUserNext": "Next",
     "askUserGoTo": "Question {{index}}",
-    "askUserProgress": "{{current}} / {{total}}"
+    "askUserProgress": "{{current}} / {{total}}",
+    "internalContextInjected": "Internal context injected",
+    "internalContextSubtitle": "From skills/system/tools (not your input)",
+    "internalContextView": "View ({{count}})",
+    "internalContextHide": "Hide",
+    "internalContextCopy": "Copy",
+    "thinkingTitle": "Thinking",
+    "scrollToLatestMessage": "Jump to latest message"
   },
   "status": {
     "pending": "Pending",

@@ -8,6 +8,7 @@ import type { ToolUseBlock, ToolResultBlock } from "@/features/chat/types";
 import { ToolChain } from "./tool-chain";
 import remarkBreaks from "remark-breaks";
 import { MarkdownCode, MarkdownPre } from "@/components/shared/markdown-code";
+import { useT } from "@/lib/i18n/client";
 
 type LinkProps = {
   children?: React.ReactNode;
@@ -33,6 +34,8 @@ export function MessageContent({
 }: {
   content: string | MessageBlock[];
 }) {
+  const { t } = useT("translation");
+
   // Helper function to extract text content from message
   const getTextContent = (content: string | MessageBlock[]): string => {
     const clean = (text: string) => text.replace(/\uFFFD/g, "");
@@ -127,14 +130,23 @@ export function MessageContent({
 
   // Handle array of blocks (Tools + Text)
   // We need to group them: sequence of tool blocks -> ToolChain, sequence of text blocks -> Markdown
-  const groups: { type: "text" | "tool"; blocks: MessageBlock[] }[] = [];
-  let currentGroup: { type: "text" | "tool"; blocks: MessageBlock[] } | null =
-    null;
+  const groups: {
+    type: "text" | "tool" | "thinking";
+    blocks: MessageBlock[];
+  }[] = [];
+  let currentGroup: {
+    type: "text" | "tool" | "thinking";
+    blocks: MessageBlock[];
+  } | null = null;
 
   for (const block of content) {
     const isTool =
       block._type === "ToolUseBlock" || block._type === "ToolResultBlock";
-    const type = isTool ? "tool" : "text";
+    const type = isTool
+      ? "tool"
+      : block._type === "ThinkingBlock"
+        ? "thinking"
+        : "text";
 
     if (!currentGroup || currentGroup.type !== type) {
       currentGroup = { type, blocks: [] };
@@ -152,6 +164,27 @@ export function MessageContent({
               key={index}
               blocks={group.blocks as (ToolUseBlock | ToolResultBlock)[]}
             />
+          );
+        } else if (group.type === "thinking") {
+          const thinking = group.blocks
+            .map((b) => (b._type === "ThinkingBlock" ? b.thinking : ""))
+            .join("\n\n")
+            .trim();
+
+          if (!thinking) return null;
+
+          return (
+            <details
+              key={index}
+              className="rounded-md border border-border/60 bg-muted/20 px-3 py-2"
+            >
+              <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
+                {t("chat.thinkingTitle", "思考过程")}
+              </summary>
+              <div className="mt-2 border-t border-border/50 pt-2 text-xs whitespace-pre-wrap break-words break-all font-mono text-foreground/90">
+                {thinking}
+              </div>
+            </details>
           );
         } else {
           const text = group.blocks

@@ -7,19 +7,50 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AssistantMessage } from "./messages/assistant-message";
 import { UserMessage } from "./messages/user-message";
 import type { ChatMessage } from "@/features/chat/types";
+import { useT } from "@/lib/i18n/client";
 
 export interface ChatMessageListProps {
   messages: ChatMessage[];
   isTyping?: boolean;
+  internalContextsByUserMessageId?: Record<string, string[]>;
 }
 
-export function ChatMessageList({ messages, isTyping }: ChatMessageListProps) {
+export function ChatMessageList({
+  messages,
+  isTyping,
+  internalContextsByUserMessageId,
+}: ChatMessageListProps) {
+  const { t } = useT("translation");
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = React.useState(false);
   const [isUserScrolling, setIsUserScrolling] = React.useState(false);
   const lastMessageCountRef = React.useRef(messages.length);
   const hasInitializedRef = React.useRef(false);
+  const [expandedInternalContextIds, setExpandedInternalContextIds] =
+    React.useState<Set<string>>(() => new Set());
+
+  const toggleInternalContext = React.useCallback((messageId: string) => {
+    setExpandedInternalContextIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) {
+        next.delete(messageId);
+      } else {
+        next.add(messageId);
+      }
+      return next;
+    });
+  }, []);
+
+  const copyInternalContext = React.useCallback(async (texts: string[]) => {
+    const joined = texts.filter(Boolean).join("\n\n");
+    if (!joined) return;
+    try {
+      await navigator.clipboard.writeText(joined);
+    } catch (err) {
+      console.error("Failed to copy internal context", err);
+    }
+  }, []);
 
   // Check if user has scrolled up
   const checkScrollPosition = React.useCallback(() => {
@@ -119,17 +150,90 @@ export function ChatMessageList({ messages, isTyping }: ChatMessageListProps) {
     <div className="h-full overflow-hidden relative">
       <ScrollArea ref={scrollAreaRef} className="h-full">
         <div className="px-6 py-6 space-y-4 w-full min-w-0 max-w-full">
-          {messages.map((message) =>
-            message.role === "user" ? (
-              <UserMessage
-                key={message.id}
-                content={message.content}
-                attachments={message.attachments}
-              />
-            ) : (
-              <AssistantMessage key={message.id} message={message} />
-            ),
-          )}
+          {messages.map((message) => {
+            if (message.role === "user") {
+              const internalTexts =
+                internalContextsByUserMessageId?.[message.id] || [];
+              const expanded = expandedInternalContextIds.has(message.id);
+              const hasInternal = internalTexts.length > 0;
+
+              if (!hasInternal) {
+                return (
+                  <UserMessage
+                    key={message.id}
+                    content={message.content}
+                    attachments={message.attachments}
+                  />
+                );
+              }
+
+              return (
+                <div key={message.id} className="space-y-2 w-full">
+                  <UserMessage
+                    content={message.content}
+                    attachments={message.attachments}
+                  />
+                  <div className="flex justify-end w-full">
+                    <div className="max-w-[85%] w-full rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-foreground">
+                            {t(
+                              "chat.internalContextInjected",
+                              "内部上下文已注入",
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {t(
+                              "chat.internalContextSubtitle",
+                              "来自技能/系统/工具的消息（不代表你的输入）",
+                            )}
+                          </div>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => toggleInternalContext(message.id)}
+                        >
+                          {expanded
+                            ? t("chat.internalContextHide", "收起")
+                            : t(
+                                "chat.internalContextView",
+                                "查看（{{count}}）",
+                                { count: internalTexts.length },
+                              )}
+                        </Button>
+                      </div>
+
+                      {expanded && (
+                        <div className="mt-2 border-t border-border/50 pt-2 space-y-2">
+                          <div className="text-xs whitespace-pre-wrap break-words break-all text-foreground/90">
+                            {internalTexts.join("\n\n")}
+                          </div>
+                          <div className="flex justify-end">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => copyInternalContext(internalTexts)}
+                            >
+                              {t("chat.internalContextCopy", "复制")}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            return <AssistantMessage key={message.id} message={message} />;
+          })}
           {isTyping && (
             <AssistantMessage
               message={{
@@ -153,7 +257,7 @@ export function ChatMessageList({ messages, isTyping }: ChatMessageListProps) {
             size="icon"
             onClick={scrollToBottom}
             className="h-10 w-10 rounded-full shadow-lg hover:shadow-xl transition-shadow bg-background"
-            title="跳转到最新消息"
+            title={t("chat.scrollToLatestMessage", "跳转到最新消息")}
           >
             <ArrowDown className="h-5 w-5" />
           </Button>

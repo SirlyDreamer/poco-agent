@@ -43,8 +43,8 @@ export const TASK_STATUS_META: Record<
     dotClassName: "bg-muted-foreground/40",
     labelKey: "status.pending",
   },
-  running: { dotClassName: "bg-chart-2", labelKey: "status.running" },
-  completed: { dotClassName: "bg-chart-1", labelKey: "status.completed" },
+  running: { dotClassName: "bg-info", labelKey: "status.running" },
+  completed: { dotClassName: "bg-success", labelKey: "status.completed" },
   failed: { dotClassName: "bg-destructive", labelKey: "status.failed" },
 };
 
@@ -87,11 +87,11 @@ export const MESSAGE_STATUS_META: Record<
   },
   streaming: {
     labelKey: "message.status.streaming",
-    className: "text-chart-2 animate-pulse",
+    className: "text-info animate-pulse",
   },
   completed: {
     labelKey: "message.status.completed",
-    className: "text-chart-1",
+    className: "text-success",
   },
   failed: {
     labelKey: "message.status.failed",

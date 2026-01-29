@@ -130,7 +130,14 @@
     "askUserPrevious": "上一题",
     "askUserNext": "下一题",
     "askUserGoTo": "第 {{index}} 题",
-    "askUserProgress": "{{current}} / {{total}} 题"
+    "askUserProgress": "{{current}} / {{total}} 题",
+    "internalContextInjected": "内部上下文已注入",
+    "internalContextSubtitle": "来自技能/系统/工具的消息（不代表你的输入）",
+    "internalContextView": "查看（{{count}}）",
+    "internalContextHide": "收起",
+    "internalContextCopy": "复制",
+    "thinkingTitle": "思考过程",
+    "scrollToLatestMessage": "跳转到最新消息"
   },
   "status": {
     "pending": "待处理",

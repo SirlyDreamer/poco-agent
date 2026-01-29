@@ -275,6 +275,7 @@ interface ViewerToolbarProps {
   file: FileNode;
   subtitle?: string;
   resolvedUrl?: string;
+  onDownload?: () => void | Promise<void>;
   onCopy?: () => void;
   copyDisabled?: boolean;
   copyState?: "idle" | "copied";
@@ -284,6 +285,7 @@ const DocumentViewerToolbar = ({
   file,
   subtitle,
   resolvedUrl,
+  onDownload,
   onCopy,
   copyDisabled,
   copyState = "idle",
@@ -333,6 +335,10 @@ const DocumentViewerToolbar = ({
             variant="ghost"
             className="h-8 w-8"
             onClick={() => {
+              if (onDownload) {
+                void onDownload();
+                return;
+              }
               const link = document.createElement("a");
               link.href = resolvedUrl;
               link.download = file.name || file.path || "document";
@@ -351,12 +357,14 @@ interface TextDocumentViewerProps {
   file: FileNode;
   language?: string;
   resolvedUrl?: string;
+  ensureFreshFile?: (file: FileNode) => Promise<FileNode | undefined>;
 }
 
 const TextDocumentViewer = ({
   file,
   language = DEFAULT_TEXT_LANGUAGE,
   resolvedUrl,
+  ensureFreshFile,
 }: TextDocumentViewerProps) => {
   const { t } = useT("translation");
   const { resolvedTheme } = useTheme();
@@ -369,6 +377,16 @@ const TextDocumentViewer = ({
     language && language !== DEFAULT_TEXT_LANGUAGE ? language : undefined;
   const subtitle = (language || DEFAULT_TEXT_LANGUAGE).toUpperCase();
   const syntaxTheme = resolvedTheme === "dark" ? oneDark : oneLight;
+
+  const handleDownload = async () => {
+    const refreshed = ensureFreshFile ? await ensureFreshFile(file) : file;
+    const url = ensureAbsoluteUrl(refreshed?.url ?? resolvedUrl);
+    if (!url) return;
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = refreshed?.name || refreshed?.path || "document";
+    link.click();
+  };
 
   const handleCopy = React.useCallback(async () => {
     if (state.status !== "success") return;
@@ -413,7 +431,13 @@ const TextDocumentViewer = ({
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={refetch}
+                onClick={() => {
+                  if (ensureFreshFile) {
+                    void ensureFreshFile(file);
+                    return;
+                  }
+                  refetch();
+                }}
               >
                 {t("artifacts.viewer.retry")}
               </Button>
@@ -439,6 +463,7 @@ const TextDocumentViewer = ({
         file={file}
         subtitle={subtitle}
         resolvedUrl={resolvedUrl}
+        onDownload={handleDownload}
         onCopy={handleCopy}
         copyDisabled={false}
         copyState={copyState}
@@ -492,9 +517,11 @@ const TextDocumentViewer = ({
 const MarkdownDocumentViewer = ({
   file,
   resolvedUrl,
+  ensureFreshFile,
 }: {
   file: FileNode;
   resolvedUrl?: string;
+  ensureFreshFile?: (file: FileNode) => Promise<FileNode | undefined>;
 }) => {
   const { t } = useT("translation");
   const { state, refetch } = useFileTextContent({
@@ -502,6 +529,16 @@ const MarkdownDocumentViewer = ({
     fallbackUrl: resolvedUrl,
   });
   const [copyState, setCopyState] = React.useState<"idle" | "copied">("idle");
+
+  const handleDownload = async () => {
+    const refreshed = ensureFreshFile ? await ensureFreshFile(file) : file;
+    const url = ensureAbsoluteUrl(refreshed?.url ?? resolvedUrl);
+    if (!url) return;
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = refreshed?.name || refreshed?.path || "document";
+    link.click();
+  };
 
   const handleCopy = React.useCallback(async () => {
     if (state.status !== "success") return;
@@ -546,7 +583,13 @@ const MarkdownDocumentViewer = ({
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={refetch}
+                onClick={() => {
+                  if (ensureFreshFile) {
+                    void ensureFreshFile(file);
+                    return;
+                  }
+                  refetch();
+                }}
               >
                 {t("artifacts.viewer.retry")}
               </Button>
@@ -572,6 +615,7 @@ const MarkdownDocumentViewer = ({
         file={file}
         subtitle="MARKDOWN"
         resolvedUrl={resolvedUrl}
+        onDownload={handleDownload}
         onCopy={handleCopy}
         copyDisabled={false}
         copyState={copyState}
@@ -648,7 +692,15 @@ const MarkdownDocumentViewer = ({
   );
 };
 
-const DocumentViewerComponent = ({ file }: { file?: FileNode }) => {
+interface DocumentViewerProps {
+  file?: FileNode;
+  ensureFreshFile?: (file: FileNode) => Promise<FileNode | undefined>;
+}
+
+const DocumentViewerComponent = ({
+  file,
+  ensureFreshFile,
+}: DocumentViewerProps) => {
   const { t } = useT("translation");
 
   if (!file)
@@ -678,6 +730,16 @@ const DocumentViewerComponent = ({ file }: { file?: FileNode }) => {
   const docType = DOC_VIEWER_TYPE_MAP[extension];
   const textLanguage = getTextLanguage(extension, file.mimeType);
 
+  const handleDownload = async () => {
+    const refreshed = ensureFreshFile ? await ensureFreshFile(file) : file;
+    const url = ensureAbsoluteUrl(refreshed?.url ?? resolvedUrl);
+    if (!url) return;
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = refreshed?.name || refreshed?.path || "document";
+    link.click();
+  };
+
   if (extension === "html" || extension === "htm") {
     return (
       <div
@@ -690,6 +752,7 @@ const DocumentViewerComponent = ({ file }: { file?: FileNode }) => {
           file={file}
           subtitle="HTML PREVIEW"
           resolvedUrl={resolvedUrl}
+          onDownload={handleDownload}
         />
         <iframe
           src={resolvedUrl}
@@ -715,6 +778,7 @@ const DocumentViewerComponent = ({ file }: { file?: FileNode }) => {
           file={file}
           subtitle={subtitle}
           resolvedUrl={documentUri}
+          onDownload={handleDownload}
         />
         <div className="flex-1 overflow-hidden bg-black/5">
           <DocViewer
@@ -729,7 +793,13 @@ const DocumentViewerComponent = ({ file }: { file?: FileNode }) => {
   }
 
   if (textLanguage === "markdown") {
-    return <MarkdownDocumentViewer file={file} resolvedUrl={resolvedUrl} />;
+    return (
+      <MarkdownDocumentViewer
+        file={file}
+        resolvedUrl={resolvedUrl}
+        ensureFreshFile={ensureFreshFile}
+      />
+    );
   }
 
   if (textLanguage) {
@@ -738,6 +808,7 @@ const DocumentViewerComponent = ({ file }: { file?: FileNode }) => {
         file={file}
         language={textLanguage}
         resolvedUrl={resolvedUrl}
+        ensureFreshFile={ensureFreshFile}
       />
     );
   }
@@ -754,9 +825,17 @@ const DocumentViewerComponent = ({ file }: { file?: FileNode }) => {
               variant="outline"
               size="sm"
               className="gap-2"
-              onClick={() =>
-                window.open(resolvedUrl, "_blank", "noopener,noreferrer")
-              }
+              onClick={() => {
+                const open = async () => {
+                  const refreshed = ensureFreshFile
+                    ? await ensureFreshFile(file)
+                    : file;
+                  const url = ensureAbsoluteUrl(refreshed?.url ?? resolvedUrl);
+                  if (!url) return;
+                  window.open(url, "_blank", "noopener,noreferrer");
+                };
+                void open();
+              }}
             >
               <ExternalLink className="size-4" />
               {t("artifacts.viewer.openInNewWindow")}
@@ -766,10 +845,7 @@ const DocumentViewerComponent = ({ file }: { file?: FileNode }) => {
               size="sm"
               className="gap-2"
               onClick={() => {
-                const link = document.createElement("a");
-                link.href = resolvedUrl;
-                link.download = file.name || file.path;
-                link.click();
+                void handleDownload();
               }}
             >
               <Download className="size-4" />

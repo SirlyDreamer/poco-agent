@@ -61,8 +61,8 @@ function FileChangesSummary({ fileChanges }: FileChangesSummaryProps) {
 
       <div className="flex flex-wrap items-center gap-3">
         {summary.added > 0 && (
-          <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
+          <div className="flex items-center gap-1.5 text-success">
+            <div className="w-2 h-2 rounded-full bg-success" />
             <span>
               +{summary.added} {t("artifacts.summary.added")}
             </span>
@@ -70,8 +70,8 @@ function FileChangesSummary({ fileChanges }: FileChangesSummaryProps) {
         )}
 
         {summary.modified > 0 && (
-          <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
-            <div className="w-2 h-2 rounded-full bg-blue-500" />
+          <div className="flex items-center gap-1.5 text-info">
+            <div className="w-2 h-2 rounded-full bg-info" />
             <span>
               {summary.modified} {t("artifacts.summary.modified")}
             </span>
@@ -79,8 +79,8 @@ function FileChangesSummary({ fileChanges }: FileChangesSummaryProps) {
         )}
 
         {summary.deleted > 0 && (
-          <div className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
-            <div className="w-2 h-2 rounded-full bg-red-500" />
+          <div className="flex items-center gap-1.5 text-destructive">
+            <div className="w-2 h-2 rounded-full bg-destructive" />
             <span>
               -{summary.deleted} {t("artifacts.summary.deleted")}
             </span>
@@ -88,8 +88,8 @@ function FileChangesSummary({ fileChanges }: FileChangesSummaryProps) {
         )}
 
         {summary.renamed > 0 && (
-          <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400">
-            <div className="w-2 h-2 rounded-full bg-purple-500" />
+          <div className="flex items-center gap-1.5 text-renamed">
+            <div className="w-2 h-2 rounded-full bg-renamed" />
             <span>
               {summary.renamed} {t("artifacts.summary.renamed")}
             </span>

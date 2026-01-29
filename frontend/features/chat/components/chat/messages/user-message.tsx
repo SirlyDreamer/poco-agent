@@ -29,7 +29,7 @@ export function UserMessage({
   const textContent = parseContent(content);
 
   return (
-    <div className="flex flex-col items-end mb-4 w-full gap-2">
+    <div className="flex flex-col items-end w-full gap-2">
       {attachments && attachments.length > 0 && (
         <div className="max-w-[85%] flex flex-wrap justify-end gap-2">
           {attachments.map((file, i) => (
