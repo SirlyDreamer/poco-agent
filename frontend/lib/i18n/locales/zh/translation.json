@@ -28,7 +28,9 @@
     "workspace": "Poco 1.0",
     "switchWorkspace": "切换工作区",
     "notifications": "通知",
-    "more": "更多"
+    "more": "更多",
+    "repoLink": "项目仓库",
+    "repoName": "poco-ai/poco-agent"
   },
   "hero": {
     "title": "我能为你做什么？",
@@ -343,6 +345,42 @@
         "createTitle": "创建定时任务",
         "trigger": "立即执行",
         "empty": "暂无定时任务"
+      },
+      "detail": {
+        "title": "定时任务详情",
+        "subtitle": "{{schedule}}",
+        "refresh": "刷新",
+        "edit": "编辑",
+        "editTitle": "编辑定时任务",
+        "deleteTitle": "删除定时任务？",
+        "deleteDescription": "删除后将不再自动触发。已产生的运行记录仍可在会话中查看。",
+        "notFound": "未找到该定时任务",
+        "enabledOn": "已启用",
+        "enabledOff": "已暂停",
+        "schedule": "计划",
+        "lastRun": "最近一次运行",
+        "reuseSessionOn": "复用（同一会话/工作区）",
+        "reuseSessionOff": "不复用（每次新建会话/工作区）",
+        "reuseSessionImmutable": "创建后不可修改",
+        "openWorkspace": "打开会话",
+        "runsTitle": "运行记录",
+        "noRuns": "暂无运行记录（到达触发时间后会自动生成运行记录）",
+        "runTriggeredAt": "触发时间",
+        "runStatus": "状态",
+        "runDuration": "耗时",
+        "runProgress": "进度",
+        "durationSeconds": "{{seconds}} 秒",
+        "durationMinutesSeconds": "{{minutes}} 分 {{seconds}} 秒",
+        "viewResult": "查看结果"
+      },
+      "status": {
+        "queued": "排队中",
+        "claimed": "已领取",
+        "running": "运行中",
+        "completed": "成功",
+        "failed": "失败",
+        "canceled": "已取消",
+        "unknown": "未知"
       },
       "fields": {
         "name": "名称",

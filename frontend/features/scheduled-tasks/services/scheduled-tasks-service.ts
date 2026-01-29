@@ -12,6 +12,12 @@ export const scheduledTasksService = {
     return apiClient.get<ScheduledTask[]>(API_ENDPOINTS.scheduledTasks);
   },
 
+  get: async (scheduledTaskId: string): Promise<ScheduledTask> => {
+    return apiClient.get<ScheduledTask>(
+      API_ENDPOINTS.scheduledTask(scheduledTaskId),
+    );
+  },
+
   create: async (input: ScheduledTaskCreateInput): Promise<ScheduledTask> => {
     return apiClient.post<ScheduledTask>(API_ENDPOINTS.scheduledTasks, input);
   },

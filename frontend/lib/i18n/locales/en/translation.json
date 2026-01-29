@@ -28,7 +28,9 @@
     "workspace": "Poco 1.0",
     "switchWorkspace": "Switch workspace",
     "notifications": "Notifications",
-    "more": "More"
+    "more": "More",
+    "repoLink": "Project repository",
+    "repoName": "poco-ai/poco-agent"
   },
   "hero": {
     "title": "What can I do for you?",
@@ -343,6 +345,42 @@
         "createTitle": "Create Scheduled Task",
         "trigger": "Run Now",
         "empty": "No scheduled tasks yet"
+      },
+      "detail": {
+        "title": "Scheduled Task",
+        "subtitle": "{{schedule}}",
+        "refresh": "Refresh",
+        "edit": "Edit",
+        "editTitle": "Edit Scheduled Task",
+        "deleteTitle": "Delete scheduled task?",
+        "deleteDescription": "This will stop future triggers. Existing run history remains in chat sessions.",
+        "notFound": "Scheduled task not found",
+        "enabledOn": "Enabled",
+        "enabledOff": "Paused",
+        "schedule": "Schedule",
+        "lastRun": "Last run",
+        "reuseSessionOn": "Reuse (same session/workspace)",
+        "reuseSessionOff": "Do not reuse (new session/workspace per run)",
+        "reuseSessionImmutable": "Cannot be changed after creation",
+        "openWorkspace": "Open session",
+        "runsTitle": "Run history",
+        "noRuns": "No runs yet. A run will appear after the next trigger.",
+        "runTriggeredAt": "Triggered at",
+        "runStatus": "Status",
+        "runDuration": "Duration",
+        "runProgress": "Progress",
+        "durationSeconds": "{{seconds}}s",
+        "durationMinutesSeconds": "{{minutes}}m {{seconds}}s",
+        "viewResult": "View result"
+      },
+      "status": {
+        "queued": "Queued",
+        "claimed": "Claimed",
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed",
+        "canceled": "Canceled",
+        "unknown": "Unknown"
       },
       "fields": {
         "name": "Name",

@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.models.agent_run import AgentRun
+from app.repositories.scheduled_task_repository import ScheduledTaskRepository
 from app.repositories.message_repository import MessageRepository
 from app.repositories.tool_execution_repository import ToolExecutionRepository
 from app.repositories.usage_log_repository import UsageLogRepository
@@ -22,6 +23,31 @@ logger = logging.getLogger(__name__)
 
 class CallbackService:
     """Service layer for processing executor callbacks."""
+
+    def _sync_scheduled_task_last_status(self, db: Session, db_run: AgentRun) -> None:
+        """Keep AgentScheduledTask.last_run_status in sync with the latest run state.
+
+        The UI relies on AgentScheduledTask.last_run_status/last_error to show execution
+        results without scanning the whole run history.
+        """
+        if not db_run.scheduled_task_id:
+            return
+
+        db_task = ScheduledTaskRepository.get_by_id(db, db_run.scheduled_task_id)
+        if not db_task:
+            return
+
+        # Avoid older runs overriding the latest run status.
+        if db_task.last_run_id and db_task.last_run_id != db_run.id:
+            return
+
+        db_task.last_run_id = db_run.id
+        db_task.last_run_status = db_run.status
+
+        if db_run.status == "failed":
+            db_task.last_error = db_run.last_error or db_task.last_error
+        elif db_run.status == "completed":
+            db_task.last_error = None
 
     def _extract_sdk_session_id_from_message(
         self, message: dict[str, Any]
@@ -331,6 +357,7 @@ class CallbackService:
                 if callback.status == CallbackStatus.COMPLETED:
                     db_run.progress = 100
 
+            self._sync_scheduled_task_last_status(db, db_run)
             db.commit()
 
         return CallbackResponse(

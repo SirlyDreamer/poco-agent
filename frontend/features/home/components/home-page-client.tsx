@@ -73,7 +73,7 @@ export function HomePageClient() {
           const enabled = Boolean(scheduledTask?.enabled ?? true);
           const reuseSession = Boolean(scheduledTask?.reuse_session ?? true);
 
-          await scheduledTasksService.create({
+          const created = await scheduledTasksService.create({
             name,
             cron,
             timezone,
@@ -85,8 +85,9 @@ export function HomePageClient() {
 
           toast.success(t("library.scheduledTasks.toasts.created"));
           setInputValue("");
-          // Navigate to manage page after creation
-          router.push(`/${lng}/capabilities/scheduled-tasks`);
+          router.push(
+            `/${lng}/capabilities/scheduled-tasks/${created.scheduled_task_id}`,
+          );
           return;
         }
 

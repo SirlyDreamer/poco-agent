@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { CreditsPopover } from "./credits-popover";
 import { UserMenu } from "@/features/user/components/user-menu";
+import { RepoLinkButton } from "@/components/shared/repo-link-button";
 
 import { useUserAccount } from "@/features/user/hooks/use-user-account";
 
@@ -34,6 +35,7 @@ export function HomeHeader({ onOpenSettings }: HomeHeaderProps) {
         </Button>
       </div>
       <div className="flex items-center gap-1">
+        <RepoLinkButton size="sm" />
         <CreditsPopover
           trigger={
             <Button

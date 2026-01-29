@@ -45,15 +45,17 @@ export function useScheduledTasksStore() {
   }, [t]);
 
   const createTask = useCallback(
-    async (input: ScheduledTaskCreateInput) => {
+    async (input: ScheduledTaskCreateInput): Promise<ScheduledTask | null> => {
       setSavingId("create");
       try {
         const created = await scheduledTasksService.create(input);
         setTasks((prev) => [created, ...prev]);
         toast.success(t("library.scheduledTasks.toasts.created"));
+        return created;
       } catch (error) {
         console.error("[ScheduledTasks] create failed", error);
         toast.error(t("library.scheduledTasks.toasts.error"));
+        return null;
       } finally {
         setSavingId(null);
       }
