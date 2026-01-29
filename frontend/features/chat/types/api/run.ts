@@ -2,9 +2,9 @@
  * Run/Task-related API types matching backend schemas
  */
 
-import type { TaskConfig } from "./session";
+import type { TaskConfig, UsageResponse } from "./session";
 
-export type { TaskConfig, InputFile } from "./session";
+export type { TaskConfig, InputFile, UsageResponse } from "./session";
 
 export interface TaskEnqueueRequest {
   prompt: string;
@@ -31,6 +31,7 @@ export interface RunResponse {
   schedule_mode: string;
   scheduled_task_id?: string | null;
   scheduled_at: string; // ISO datetime
+  usage?: UsageResponse | null;
   claimed_by: string | null;
   lease_expires_at: string | null;
   attempts: number;

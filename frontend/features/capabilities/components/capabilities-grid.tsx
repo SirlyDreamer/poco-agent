@@ -2,7 +2,14 @@
 
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Puzzle, Server, Clock, Sparkles, Key } from "lucide-react";
+import {
+  Puzzle,
+  Server,
+  Clock,
+  Sparkles,
+  Key,
+  Command as CommandIcon,
+} from "lucide-react";
 
 import { useT } from "@/lib/i18n/client";
 import { FeatureCard } from "@/components/ui/feature-card";
@@ -74,6 +81,26 @@ export function CapabilitiesGrid() {
         ],
         actionLabel: t("library.envVars.card.action", "管理变量"),
         actionHref: "/capabilities/env-vars",
+        comingSoon: false,
+      },
+      {
+        id: "slash-commands",
+        icon: <CommandIcon className="size-6" />,
+        title: t("library.slashCommands.card.title", "Slash Commands"),
+        description: t(
+          "library.slashCommands.card.description",
+          "保存常用 / 命令，并在聊天输入中自动补全",
+        ),
+        features: [
+          t("library.slashCommands.card.feature1", "个人命令库（全局生效）"),
+          t(
+            "library.slashCommands.card.feature2",
+            "支持 argument-hint 与 allowed-tools",
+          ),
+          t("library.slashCommands.card.feature3", "输入 / 自动补全与插入"),
+        ],
+        actionLabel: t("library.slashCommands.card.action", "管理命令"),
+        actionHref: "/capabilities/slash-commands",
         comingSoon: false,
       },
       {

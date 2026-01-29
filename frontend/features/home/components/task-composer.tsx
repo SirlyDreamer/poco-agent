@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { FileCard } from "@/components/shared/file-card";
 import { playFileUploadSound } from "@/lib/utils/sound";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -42,6 +43,7 @@ import {
   RunScheduleDialog,
   type RunScheduleMode,
 } from "@/features/home/components/run-schedule-dialog";
+import { useSlashCommandAutocomplete } from "@/features/chat/hooks/use-slash-command-autocomplete";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
@@ -91,6 +93,11 @@ export function TaskComposer({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = React.useState(false);
   const [attachments, setAttachments] = React.useState<InputFile[]>([]);
+  const slashAutocomplete = useSlashCommandAutocomplete({
+    value,
+    onChange,
+    textareaRef,
+  });
 
   const [repoDialogOpen, setRepoDialogOpen] = React.useState(false);
   const [repoUrl, setRepoUrl] = React.useState("");
@@ -281,7 +288,7 @@ export function TaskComposer({
   ]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+    <div className="rounded-2xl border border-border bg-card shadow-sm">
       <input
         type="file"
         ref={fileInputRef}
@@ -380,7 +387,48 @@ export function TaskComposer({
       />
 
       {/* 输入区域 */}
-      <div className="px-4 pb-3 pt-4">
+      <div className="relative px-4 pb-3 pt-4">
+        {slashAutocomplete.isOpen ? (
+          <div className="absolute bottom-full left-0 mb-2 w-full overflow-hidden rounded-lg border border-border bg-popover shadow-md">
+            <div className="max-h-64 overflow-auto py-1">
+              {slashAutocomplete.suggestions.map((item, idx) => {
+                const selected = idx === slashAutocomplete.activeIndex;
+                return (
+                  <button
+                    key={item.command}
+                    type="button"
+                    onMouseEnter={() => slashAutocomplete.setActiveIndex(idx)}
+                    onMouseDown={(ev) => {
+                      // Prevent textarea from losing focus.
+                      ev.preventDefault();
+                      slashAutocomplete.applySelection(idx);
+                    }}
+                    className={cn(
+                      "w-full px-3 py-2 text-left text-sm",
+                      selected
+                        ? "bg-accent text-accent-foreground"
+                        : "hover:bg-accent/50",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono">{item.command}</span>
+                      {item.argument_hint ? (
+                        <span className="text-xs text-muted-foreground font-mono truncate">
+                          {item.argument_hint}
+                        </span>
+                      ) : null}
+                    </div>
+                    {item.description ? (
+                      <div className="text-xs text-muted-foreground truncate">
+                        {item.description}
+                      </div>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
         <Textarea
           ref={textareaRef}
           value={value}
@@ -396,6 +444,7 @@ export function TaskComposer({
           onFocus={onFocus}
           onBlur={onBlur}
           onKeyDown={(e) => {
+            if (slashAutocomplete.handleKeyDown(e)) return;
             if (e.key === "Enter") {
               if (e.shiftKey) {
                 // Allow default behavior (newline)

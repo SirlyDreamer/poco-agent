@@ -8,6 +8,7 @@ import type {
   ChatMessage,
   ExecutionSession,
   InputFile,
+  UsageResponse,
 } from "@/features/chat/types";
 
 interface UseChatMessagesOptions {
@@ -23,6 +24,7 @@ interface UseChatMessagesReturn {
   showTypingIndicator: boolean;
   sendMessage: (content: string, attachments?: InputFile[]) => Promise<void>;
   internalContextsByUserMessageId: Record<string, string[]>;
+  runUsageByUserMessageId: Record<string, UsageResponse | null>;
 }
 
 /**
@@ -45,6 +47,9 @@ export function useChatMessages({
   const [isTyping, setIsTyping] = useState(false);
   const [internalContextsByUserMessageId, setInternalContextsByUserMessageId] =
     useState<Record<string, string[]>>({});
+  const [runUsageByUserMessageId, setRunUsageByUserMessageId] = useState<
+    Record<string, UsageResponse | null>
+  >({});
 
   const lastLoadedSessionIdRef = useRef<string | null>(null);
   const realUserMessageIdsRef = useRef<number[] | null>(null);
@@ -60,10 +65,17 @@ export function useChatMessages({
         .filter((id): id is number => typeof id === "number" && id > 0);
 
       realUserMessageIdsRef.current = ids;
+      const usageByMessageId: Record<string, UsageResponse | null> = {};
+      runs.forEach((r) => {
+        const key = String(r.user_message_id);
+        usageByMessageId[key] = r.usage ?? null;
+      });
+      setRunUsageByUserMessageId(usageByMessageId);
     } catch (error) {
       console.error("[Chat] Failed to load runs:", error);
       // Keep as null so message rendering falls back to showing all user messages.
       realUserMessageIdsRef.current = null;
+      setRunUsageByUserMessageId({});
     }
   }, [session?.session_id]);
 
@@ -133,15 +145,22 @@ export function useChatMessages({
     async (content: string, attachments?: InputFile[]) => {
       if (!session?.session_id) return;
 
+      const normalizedContent = content.trim();
+      const hasAttachments = (attachments?.length ?? 0) > 0;
+      if (!normalizedContent && !hasAttachments) return;
+
       const sessionId = session.session_id;
-      console.log(`[Chat] Sending message to session ${sessionId}:`, content);
+      console.log(
+        `[Chat] Sending message to session ${sessionId}:`,
+        normalizedContent,
+      );
       setIsTyping(true);
 
       // Create a new user message for instant UI update
       const newMessage: ChatMessage = {
         id: `msg-${Date.now()}`,
         role: "user",
-        content,
+        content: normalizedContent,
         status: "sent",
         timestamp: new Date().toISOString(),
         attachments,
@@ -150,7 +169,11 @@ export function useChatMessages({
       setMessages((prev) => [...prev, newMessage]);
 
       try {
-        await sendMessageAction({ sessionId, content, attachments });
+        await sendMessageAction({
+          sessionId,
+          content: normalizedContent,
+          attachments,
+        });
         console.log("[Chat] Message sent successfully");
 
         // Refresh runs so multi-turn conversations only show real user inputs.
@@ -186,6 +209,7 @@ export function useChatMessages({
       setIsTyping(false);
       setInternalContextsByUserMessageId({});
       realUserMessageIdsRef.current = null;
+      setRunUsageByUserMessageId({});
       lastLoadedSessionIdRef.current = session.session_id;
     }
 
@@ -225,6 +249,8 @@ export function useChatMessages({
         `%c [Message Polling] Stopped for session ${session.session_id}`,
         "color: #f59e0b; font-weight: bold;",
       );
+      // Refresh run usage once the session becomes terminal so UI can display cost/tokens.
+      void refreshRealUserMessageIds();
     }
 
     return () => {
@@ -236,6 +262,7 @@ export function useChatMessages({
     mergeMessages,
     pollingInterval,
     fetchMessagesWithFilter,
+    refreshRealUserMessageIds,
   ]);
 
   // Manage isTyping state based on messages
@@ -281,5 +308,6 @@ export function useChatMessages({
     showTypingIndicator,
     sendMessage,
     internalContextsByUserMessageId,
+    runUsageByUserMessageId,
   };
 }

@@ -6,19 +6,21 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AssistantMessage } from "./messages/assistant-message";
 import { UserMessage } from "./messages/user-message";
-import type { ChatMessage } from "@/features/chat/types";
+import type { ChatMessage, UsageResponse } from "@/features/chat/types";
 import { useT } from "@/lib/i18n/client";
 
 export interface ChatMessageListProps {
   messages: ChatMessage[];
   isTyping?: boolean;
   internalContextsByUserMessageId?: Record<string, string[]>;
+  runUsageByUserMessageId?: Record<string, UsageResponse | null>;
 }
 
 export function ChatMessageList({
   messages,
   isTyping,
   internalContextsByUserMessageId,
+  runUsageByUserMessageId,
 }: ChatMessageListProps) {
   const { t } = useT("translation");
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -142,6 +144,33 @@ export function ChatMessageList({
     }
   }, []);
 
+  const lastAssistantIndexToUserMessageId = React.useMemo(() => {
+    const map = new Map<number, string>();
+    let currentUserMessageId: string | null = null;
+    let lastAssistantIndex: number | null = null;
+
+    messages.forEach((msg, idx) => {
+      if (msg.role === "user") {
+        if (currentUserMessageId && lastAssistantIndex !== null) {
+          map.set(lastAssistantIndex, currentUserMessageId);
+        }
+        currentUserMessageId = msg.id;
+        lastAssistantIndex = null;
+        return;
+      }
+
+      if (msg.role === "assistant" && currentUserMessageId) {
+        lastAssistantIndex = idx;
+      }
+    });
+
+    if (currentUserMessageId && lastAssistantIndex !== null) {
+      map.set(lastAssistantIndex, currentUserMessageId);
+    }
+
+    return map;
+  }, [messages]);
+
   if (messages.length === 0 && !isTyping) {
     return null;
   }
@@ -150,7 +179,7 @@ export function ChatMessageList({
     <div className="h-full overflow-hidden relative">
       <ScrollArea ref={scrollAreaRef} className="h-full">
         <div className="px-6 py-6 space-y-4 w-full min-w-0 max-w-full">
-          {messages.map((message) => {
+          {messages.map((message, index) => {
             if (message.role === "user") {
               const internalTexts =
                 internalContextsByUserMessageId?.[message.id] || [];
@@ -232,7 +261,22 @@ export function ChatMessageList({
               );
             }
 
-            return <AssistantMessage key={message.id} message={message} />;
+            const userMessageIdForUsage =
+              message.role === "assistant"
+                ? lastAssistantIndexToUserMessageId.get(index)
+                : undefined;
+            const runUsage =
+              userMessageIdForUsage && runUsageByUserMessageId
+                ? (runUsageByUserMessageId[userMessageIdForUsage] ?? null)
+                : undefined;
+
+            return (
+              <AssistantMessage
+                key={message.id}
+                message={message}
+                runUsage={runUsage}
+              />
+            );
           })}
           {isTyping && (
             <AssistantMessage

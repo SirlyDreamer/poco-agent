@@ -4,14 +4,39 @@ import * as React from "react";
 import { Bot, Copy, ThumbsUp, Check } from "lucide-react";
 import { MessageContent } from "./message-content";
 import { TypingIndicator } from "./typing-indicator";
-import type { ChatMessage, MessageBlock } from "@/features/chat/types";
+import type {
+  ChatMessage,
+  MessageBlock,
+  UsageResponse,
+} from "@/features/chat/types";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/client";
 
 interface AssistantMessageProps {
   message: ChatMessage;
+  runUsage?: UsageResponse | null;
 }
 
-export function AssistantMessage({ message }: AssistantMessageProps) {
+function pickNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function formatCostUsd(value: number | null | undefined): string | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return `$${value.toFixed(6)}`;
+}
+
+function formatDurationMs(value: number | null | undefined): string | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  const seconds = value / 1000;
+  // Keep it compact and consistent across locales.
+  return seconds >= 60 ? `${Math.round(seconds)}s` : `${seconds.toFixed(1)}s`;
+}
+
+export function AssistantMessage({ message, runUsage }: AssistantMessageProps) {
+  const { t } = useT("translation");
   const [isCopied, setIsCopied] = React.useState(false);
   const [isLiked, setIsLiked] = React.useState(false);
 
@@ -52,6 +77,32 @@ export function AssistantMessage({ message }: AssistantMessageProps) {
     // TODO: Send feedback to API
   };
 
+  const usageJson = runUsage?.usage_json as
+    | Record<string, unknown>
+    | null
+    | undefined;
+  const inputTokens = pickNumber(usageJson?.input_tokens);
+  const outputTokens = pickNumber(usageJson?.output_tokens);
+  const tokenSegments: string[] = [];
+  if (inputTokens !== null) {
+    tokenSegments.push(
+      `${t("chat.tokenInput")} ${inputTokens.toLocaleString()}`,
+    );
+  }
+  if (outputTokens !== null) {
+    tokenSegments.push(
+      `${t("chat.tokenOutput")} ${outputTokens.toLocaleString()}`,
+    );
+  }
+  const tokensLabel =
+    tokenSegments.length > 0 ? tokenSegments.join(" · ") : null;
+  const costLabel = formatCostUsd(runUsage?.total_cost_usd);
+  const durationLabel = formatDurationMs(runUsage?.total_duration_ms);
+  const showUsage =
+    !!runUsage &&
+    message.status !== "streaming" &&
+    (costLabel !== null || tokensLabel !== null || durationLabel !== null);
+
   return (
     <div className="flex w-full gap-4 group animate-in fade-in slide-in-from-left-4 duration-300 min-w-0">
       {/* Avatar Section */}
@@ -83,33 +134,49 @@ export function AssistantMessage({ message }: AssistantMessageProps) {
         </div>
 
         {/* Action Buttons - Visible on hover */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pt-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-muted-foreground hover:text-foreground"
-            onClick={onCopy}
-            title="Copy message"
-          >
-            {isCopied ? (
-              <Check className="size-3.5" />
-            ) : (
-              <Copy className="size-3.5" />
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`size-7 hover:text-foreground ${
-              isLiked
-                ? "text-primary hover:text-primary/90"
-                : "text-muted-foreground"
-            }`}
-            onClick={onLike}
-            title="Like response"
-          >
-            <ThumbsUp className={`size-3.5 ${isLiked ? "fill-current" : ""}`} />
-          </Button>
+        <div className="flex items-center justify-between gap-2 pt-2 min-w-0">
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 text-muted-foreground hover:text-foreground"
+              onClick={onCopy}
+              title="Copy message"
+            >
+              {isCopied ? (
+                <Check className="size-3.5" />
+              ) : (
+                <Copy className="size-3.5" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`size-7 hover:text-foreground ${
+                isLiked
+                  ? "text-primary hover:text-primary/90"
+                  : "text-muted-foreground"
+              }`}
+              onClick={onLike}
+              title="Like response"
+            >
+              <ThumbsUp
+                className={`size-3.5 ${isLiked ? "fill-current" : ""}`}
+              />
+            </Button>
+          </div>
+
+          {showUsage ? (
+            <div className="text-xs text-muted-foreground font-mono tabular-nums truncate min-w-0 opacity-0 group-hover:opacity-100 transition-opacity">
+              {costLabel ? `${t("chat.cost")}: ${costLabel}` : null}
+              {tokensLabel
+                ? `${costLabel ? " · " : ""}${t("chat.tokens")}: ${tokensLabel}`
+                : null}
+              {durationLabel
+                ? `${costLabel || tokensLabel ? " · " : ""}${t("chat.duration")}: ${durationLabel}`
+                : null}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

@@ -18,6 +18,8 @@ import { uploadAttachment } from "@/features/attachments/services/attachment-ser
 import type { InputFile } from "@/features/chat/types";
 import { FileCard } from "@/components/shared/file-card";
 import { playFileUploadSound } from "@/lib/utils/sound";
+import { useSlashCommandAutocomplete } from "@/features/chat/hooks/use-slash-command-autocomplete";
+import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
   value: string;
@@ -42,6 +44,11 @@ export function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [attachments, setAttachments] = useState<InputFile[]>([]);
+  const slashAutocomplete = useSlashCommandAutocomplete({
+    value,
+    onChange,
+    textareaRef,
+  });
 
   // Auto-resize textarea
   useEffect(() => {
@@ -53,6 +60,7 @@ export function ChatInput({
   }, [value]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (slashAutocomplete.handleKeyDown(e)) return;
     if (e.key === "Enter" && !e.shiftKey) {
       if (
         e.nativeEvent.isComposing ||
@@ -160,7 +168,49 @@ export function ChatInput({
           )}
 
           {/* Input area */}
-          <div className="px-4 pb-3 pt-4">
+          <div className="relative px-4 pb-3 pt-4">
+            {slashAutocomplete.isOpen ? (
+              <div className="absolute bottom-full left-0 mb-2 w-full overflow-hidden rounded-lg border border-border bg-popover shadow-md">
+                <div className="max-h-64 overflow-auto py-1">
+                  {slashAutocomplete.suggestions.map((item, idx) => {
+                    const selected = idx === slashAutocomplete.activeIndex;
+                    return (
+                      <button
+                        key={item.command}
+                        type="button"
+                        onMouseEnter={() =>
+                          slashAutocomplete.setActiveIndex(idx)
+                        }
+                        onMouseDown={(ev) => {
+                          ev.preventDefault();
+                          slashAutocomplete.applySelection(idx);
+                        }}
+                        className={cn(
+                          "w-full px-3 py-2 text-left text-sm",
+                          selected
+                            ? "bg-accent text-accent-foreground"
+                            : "hover:bg-accent/50",
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono">{item.command}</span>
+                          {item.argument_hint ? (
+                            <span className="text-xs text-muted-foreground font-mono truncate">
+                              {item.argument_hint}
+                            </span>
+                          ) : null}
+                        </div>
+                        {item.description ? (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {item.description}
+                          </div>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
             <Textarea
               ref={textareaRef}
               value={value}

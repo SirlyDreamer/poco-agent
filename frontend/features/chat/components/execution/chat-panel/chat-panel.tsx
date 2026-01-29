@@ -60,6 +60,7 @@ export function ChatPanel({
     showTypingIndicator,
     sendMessage,
     internalContextsByUserMessageId,
+    runUsageByUserMessageId,
   } = useChatMessages({ session });
 
   // Pending message queue hook
@@ -152,6 +153,7 @@ export function ChatPanel({
             messages={displayMessages}
             isTyping={showTypingIndicator}
             internalContextsByUserMessageId={internalContextsByUserMessageId}
+            runUsageByUserMessageId={runUsageByUserMessageId}
           />
         )}
       </div>

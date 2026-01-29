@@ -58,6 +58,10 @@ export const API_ENDPOINTS = {
   skillInstalls: "/skill-installs",
   skillInstall: (installId: number) => `/skill-installs/${installId}`,
 
+  // Slash Commands
+  slashCommands: "/slash-commands",
+  slashCommand: (commandId: number) => `/slash-commands/${commandId}`,
+
   // Callback
   callback: "/callback",
   callbackHealth: "/callback/health",

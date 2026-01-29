@@ -143,7 +143,10 @@
     "stopGenerating": "停止生成",
     "regenerate": "重新生成",
     "model": "模型",
-    "tokens": "令牌",
+    "tokens": "Token",
+    "tokenInput": "输入",
+    "tokenOutput": "输出",
+    "cost": "费用",
     "duration": "耗时",
     "executionTitle": "AI 执行",
     "inputPlaceholder": "Enter 发送，Shift + Enter 换行",
@@ -325,6 +328,58 @@
         "mcp": "MCP 变量"
       }
     },
+    "slashCommands": {
+      "card": {
+        "title": "Slash Commands",
+        "description": "保存常用 / 命令，并在聊天输入中自动补全",
+        "feature1": "个人命令库（全局生效）",
+        "feature2": "支持 argument-hint 与 allowed-tools",
+        "feature3": "输入 / 自动补全与插入",
+        "action": "管理命令"
+      },
+      "header": {
+        "title": "Slash Commands",
+        "add": "添加命令"
+      },
+      "summary": "可用命令",
+      "enabled": "已启用",
+      "mode": {
+        "raw": "Markdown",
+        "structured": "结构化"
+      },
+      "delete": {
+        "title": "删除命令？",
+        "description": "删除后将无法在会话中使用该命令。"
+      },
+      "dialog": {
+        "createTitle": "新增命令",
+        "editTitle": "编辑命令"
+      },
+      "fields": {
+        "name": "命令名",
+        "nameHint": "不含 /",
+        "namePlaceholder": "refactor",
+        "enabled": "启用",
+        "rawMarkdown": "Markdown 内容",
+        "rawMarkdownPlaceholder": "在这里粘贴完整的 .md（可包含 YAML 前言）",
+        "modelIgnoredHint": "提示：YAML 前言中的 model 字段会被忽略。",
+        "description": "描述",
+        "descriptionPlaceholder": "比如：运行测试并分析失败原因",
+        "argumentHint": "argument-hint",
+        "argumentHintPlaceholder": "[test-pattern]",
+        "allowedTools": "allowed-tools",
+        "allowedToolsPlaceholder": "Read, Grep, Glob",
+        "content": "命令内容",
+        "contentPlaceholder": "写下命令要 Claude 做的事（Markdown）"
+      },
+      "toasts": {
+        "loadError": "加载命令列表失败",
+        "created": "命令已创建",
+        "updated": "命令已更新",
+        "deleted": "命令已删除",
+        "error": "操作失败"
+      }
+    },
     "tags": {
       "system": "系统预设",
       "user": "我的技能"
@@ -368,6 +423,8 @@
         "runTriggeredAt": "触发时间",
         "runStatus": "状态",
         "runDuration": "耗时",
+        "runCost": "费用",
+        "runTokens": "Tokens（输入/输出）",
         "runProgress": "进度",
         "durationSeconds": "{{seconds}} 秒",
         "durationMinutesSeconds": "{{minutes}} 分 {{seconds}} 秒",

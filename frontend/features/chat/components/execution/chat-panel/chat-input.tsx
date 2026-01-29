@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/tooltip";
 import { useT } from "@/lib/i18n/client";
 import { playFileUploadSound } from "@/lib/utils/sound";
+import { useSlashCommandAutocomplete } from "@/features/chat/hooks/use-slash-command-autocomplete";
+import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
   onSend: (content: string, attachments?: InputFile[]) => void;
@@ -28,9 +30,16 @@ export function ChatInput({ onSend, disabled = false }: ChatInputProps) {
   const [attachments, setAttachments] = useState<InputFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Track whether user is composing with IME (Input Method Editor)
   const isComposingRef = useRef(false);
+
+  const slashAutocomplete = useSlashCommandAutocomplete({
+    value,
+    onChange: setValue,
+    textareaRef,
+  });
 
   const handleSend = useCallback(() => {
     if (!value.trim() && attachments.length === 0) return;
@@ -44,6 +53,7 @@ export function ChatInput({ onSend, disabled = false }: ChatInputProps) {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (slashAutocomplete.handleKeyDown(e)) return;
       // Only send on Enter if not composing (IME input in progress)
       if (e.key === "Enter") {
         if (e.shiftKey) {
@@ -61,7 +71,7 @@ export function ChatInput({ onSend, disabled = false }: ChatInputProps) {
         }
       }
     },
-    [value, attachments, handleSend],
+    [value, attachments, handleSend, slashAutocomplete],
   );
 
   const handleCompositionStart = useCallback(() => {
@@ -127,7 +137,49 @@ export function ChatInput({ onSend, disabled = false }: ChatInputProps) {
           ))}
         </div>
       )}
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+      <div className="relative flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+        {slashAutocomplete.isOpen ? (
+          <div className="absolute bottom-full left-0 mb-2 w-full overflow-hidden rounded-lg border border-border bg-popover shadow-md">
+            <div className="max-h-64 overflow-auto py-1">
+              {slashAutocomplete.suggestions.map((item, idx) => {
+                const selected = idx === slashAutocomplete.activeIndex;
+                return (
+                  <button
+                    key={item.command}
+                    type="button"
+                    onMouseEnter={() => slashAutocomplete.setActiveIndex(idx)}
+                    onMouseDown={(e) => {
+                      // Prevent textarea from losing focus.
+                      e.preventDefault();
+                      slashAutocomplete.applySelection(idx);
+                    }}
+                    className={cn(
+                      "w-full px-3 py-2 text-left text-sm",
+                      selected
+                        ? "bg-accent text-accent-foreground"
+                        : "hover:bg-accent/50",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono">{item.command}</span>
+                      {item.argument_hint ? (
+                        <span className="text-xs text-muted-foreground font-mono truncate">
+                          {item.argument_hint}
+                        </span>
+                      ) : null}
+                    </div>
+                    {item.description ? (
+                      <div className="text-xs text-muted-foreground truncate">
+                        {item.description}
+                      </div>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -150,6 +202,7 @@ export function ChatInput({ onSend, disabled = false }: ChatInputProps) {
         </Tooltip>
 
         <textarea
+          ref={textareaRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}

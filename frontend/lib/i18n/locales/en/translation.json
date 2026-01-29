@@ -144,6 +144,9 @@
     "regenerate": "Regenerate",
     "model": "Model",
     "tokens": "Tokens",
+    "tokenInput": "in",
+    "tokenOutput": "out",
+    "cost": "Cost",
     "duration": "Duration",
     "executionTitle": "AI Execution",
     "inputPlaceholder": "Enter to send, Shift + Enter for new line",
@@ -325,6 +328,58 @@
         "mcp": "MCP"
       }
     },
+    "slashCommands": {
+      "card": {
+        "title": "Slash Commands",
+        "description": "Save frequently used / commands with autocomplete in chat input",
+        "feature1": "Personal command library (global)",
+        "feature2": "Supports argument-hint and allowed-tools",
+        "feature3": "Type / to autocomplete and insert",
+        "action": "Manage Commands"
+      },
+      "header": {
+        "title": "Slash Commands",
+        "add": "Add Command"
+      },
+      "summary": "Commands",
+      "enabled": "Enabled",
+      "mode": {
+        "raw": "Markdown",
+        "structured": "Structured"
+      },
+      "delete": {
+        "title": "Delete command?",
+        "description": "After deletion, this command will no longer be available in sessions."
+      },
+      "dialog": {
+        "createTitle": "Create command",
+        "editTitle": "Edit command"
+      },
+      "fields": {
+        "name": "Name",
+        "nameHint": "without /",
+        "namePlaceholder": "refactor",
+        "enabled": "Enabled",
+        "rawMarkdown": "Markdown",
+        "rawMarkdownPlaceholder": "Paste the full .md here (YAML front matter supported)",
+        "modelIgnoredHint": "Tip: the model field in YAML front matter will be ignored.",
+        "description": "Description",
+        "descriptionPlaceholder": "Example: run tests and analyze failures",
+        "argumentHint": "argument-hint",
+        "argumentHintPlaceholder": "[test-pattern]",
+        "allowedTools": "allowed-tools",
+        "allowedToolsPlaceholder": "Read, Grep, Glob",
+        "content": "Content",
+        "contentPlaceholder": "Describe what Claude should do (Markdown)"
+      },
+      "toasts": {
+        "loadError": "Failed to load commands",
+        "created": "Command created",
+        "updated": "Command updated",
+        "deleted": "Command deleted",
+        "error": "Action failed"
+      }
+    },
     "tags": {
       "system": "Preset",
       "user": "My Skills"
@@ -368,6 +423,8 @@
         "runTriggeredAt": "Triggered at",
         "runStatus": "Status",
         "runDuration": "Duration",
+        "runCost": "Cost",
+        "runTokens": "Tokens (in/out)",
         "runProgress": "Progress",
         "durationSeconds": "{{seconds}}s",
         "durationMinutesSeconds": "{{minutes}}m {{seconds}}s",
