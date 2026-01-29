@@ -62,6 +62,10 @@ Join our WeChat group for updates and discussion:
 
 <img src="assets/wx_group.jpg" alt="WeChat Group QR" width="180">
 
+## Contributing
+
+[![Star History Chart](https://api.star-history.com/svg?repos=poco-ai/poco-agent&type=date&legend=top-left)](https://www.star-history.com/#poco-ai/poco-agent&type=date&legend=top-left)
+
 ---
 
 ## Quickstart (Docker Compose)
