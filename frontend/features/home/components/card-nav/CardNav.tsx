@@ -16,6 +16,8 @@ import {
   AppWindow,
   Loader2,
   ChevronRight,
+  Power,
+  PowerOff,
 } from "lucide-react";
 import { mcpService } from "@/features/mcp/services/mcp-service";
 import { skillsService } from "@/features/skills/services/skills-service";
@@ -24,6 +26,12 @@ import { Skill, UserSkillInstall } from "@/features/skills/types";
 import { useAppShell } from "@/components/shared/app-shell-context";
 import { cn } from "@/lib/utils";
 import { playMcpInstallSound } from "@/lib/utils/sound";
+import { useT } from "@/lib/i18n/client";
+import { toast } from "sonner";
+import { AlertTriangle } from "lucide-react";
+
+const MCP_LIMIT = 3;
+const SKILL_LIMIT = 5;
 
 export interface CardNavProps {
   triggerText?: string;
@@ -50,6 +58,7 @@ export function CardNav({
 }: CardNavProps) {
   const router = useRouter();
   const { lng } = useAppShell();
+  const { t } = useT("translation");
   const [isExpanded, setIsExpanded] = useState(false);
   const navRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -116,6 +125,13 @@ export function CardNav({
   // Toggle MCP enabled state
   const toggleMcpEnabled = useCallback(
     async (installId: number, currentEnabled: boolean) => {
+      // Check if enabling would exceed the limit
+      const currentEnabledCount = mcpInstalls.filter((i) => i.enabled).length;
+      if (!currentEnabled && currentEnabledCount >= MCP_LIMIT) {
+        toast.warning(t("hero.warnings.mcpLimitReached"));
+        return;
+      }
+
       try {
         await mcpService.updateInstall(installId, { enabled: !currentEnabled });
         setMcpInstalls((prev) =>
@@ -128,16 +144,33 @@ export function CardNav({
         if (!currentEnabled) {
           playMcpInstallSound();
         }
+
+        // Check if we've exceeded the limit after enabling
+        const newEnabledCount = !currentEnabled
+          ? currentEnabledCount + 1
+          : currentEnabledCount;
+        if (newEnabledCount > MCP_LIMIT) {
+          toast.warning(
+            t("hero.warnings.tooManyMcps", { count: newEnabledCount }),
+          );
+        }
       } catch (error) {
         console.error("[CardNav] Failed to toggle MCP:", error);
       }
     },
-    [],
+    [mcpInstalls, t],
   );
 
   // Toggle Skill enabled state
   const toggleSkillEnabled = useCallback(
     async (installId: number, currentEnabled: boolean) => {
+      // Check if enabling would exceed the limit
+      const currentEnabledCount = skillInstalls.filter((i) => i.enabled).length;
+      if (!currentEnabled && currentEnabledCount >= SKILL_LIMIT) {
+        toast.warning(t("hero.warnings.skillLimitReached"));
+        return;
+      }
+
       try {
         await skillsService.updateInstall(installId, {
           enabled: !currentEnabled,
@@ -152,11 +185,94 @@ export function CardNav({
         if (!currentEnabled) {
           playMcpInstallSound();
         }
+
+        // Check if we've exceeded the limit after enabling
+        const newEnabledCount = !currentEnabled
+          ? currentEnabledCount + 1
+          : currentEnabledCount;
+        if (newEnabledCount > SKILL_LIMIT) {
+          toast.warning(
+            t("hero.warnings.tooManySkills", { count: newEnabledCount }),
+          );
+        }
       } catch (error) {
         console.error("[CardNav] Failed to toggle Skill:", error);
       }
     },
-    [],
+    [skillInstalls, t],
+  );
+
+  // Batch toggle all MCPs
+  const batchToggleMcps = useCallback(
+    async (enable: boolean) => {
+      try {
+        await Promise.all(
+          mcpInstalls.map((install) =>
+            mcpService.updateInstall(install.id, { enabled: enable }),
+          ),
+        );
+        setMcpInstalls((prev) =>
+          prev.map((install) => ({ ...install, enabled: enable })),
+        );
+        if (enable) {
+          const count = mcpInstalls.length;
+          if (count > MCP_LIMIT) {
+            toast.warning(t("hero.warnings.tooManyMcps", { count }));
+          } else {
+            playMcpInstallSound();
+          }
+        }
+      } catch (error) {
+        console.error("[CardNav] Failed to batch toggle MCPs:", error);
+        toast.error("操作失败，请重试");
+      }
+    },
+    [mcpInstalls, t],
+  );
+
+  // Batch toggle all Skills
+  const batchToggleSkills = useCallback(
+    async (enable: boolean) => {
+      try {
+        await Promise.all(
+          skillInstalls.map((install) =>
+            skillsService.updateInstall(install.id, { enabled: enable }),
+          ),
+        );
+        setSkillInstalls((prev) =>
+          prev.map((install) => ({ ...install, enabled: enable })),
+        );
+        if (enable) {
+          const count = skillInstalls.length;
+          if (count > SKILL_LIMIT) {
+            toast.warning(t("hero.warnings.tooManySkills", { count }));
+          } else {
+            playMcpInstallSound();
+          }
+        }
+      } catch (error) {
+        console.error("[CardNav] Failed to batch toggle Skills:", error);
+        toast.error("操作失败，请重试");
+      }
+    },
+    [skillInstalls, t],
+  );
+
+  // Handle warning icon click
+  const handleWarningClick = useCallback(
+    (type: "mcp" | "skill") => {
+      const count =
+        type === "mcp"
+          ? installedMcps.filter((i) => i.enabled).length
+          : installedSkills.filter((i) => i.enabled).length;
+      const limit = type === "mcp" ? MCP_LIMIT : SKILL_LIMIT;
+      toast.warning(
+        t(`hero.warnings.tooMany${type === "mcp" ? "Mcps" : "Skills"}`, {
+          count,
+        }),
+      );
+    },
+    [installedMcps, installedSkills, t],
   );
 
   const createTimeline = useCallback(() => {
@@ -260,6 +376,8 @@ export function CardNav({
     emptyText: string,
     type: "mcp" | "skill",
   ) => {
+    const batchToggleFn = type === "mcp" ? batchToggleMcps : batchToggleSkills;
+
     if (isLoading) {
       return (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -280,37 +398,66 @@ export function CardNav({
     const toggleFn = type === "mcp" ? toggleMcpEnabled : toggleSkillEnabled;
 
     return (
-      <div className="flex flex-col gap-1 max-h-[180px] overflow-y-auto -mr-1 pr-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 transition-colors">
-        {items.map((item, index) => (
+      <div className="flex flex-col gap-2">
+        {/* Batch controls */}
+        <div className="flex items-center justify-end gap-1.5 px-1">
           <button
-            key={item.id}
-            style={{
-              animationDelay: `${index * 30}ms`,
-              animationFillMode: "both",
-            }}
-            className={cn(
-              "group/item flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition-all duration-200 text-left w-full cursor-pointer select-none animate-in fade-in slide-in-from-left-1",
-              "text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted/80",
-            )}
             onClick={(e) => {
               e.stopPropagation();
-              toggleFn(item.installId, item.enabled);
+              batchToggleFn(true);
             }}
+            className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-primary hover:bg-primary/10 rounded transition-colors"
             type="button"
           >
-            <div
-              className={cn(
-                "w-2 h-2 rounded-full transition-all duration-300 flex-shrink-0",
-                item.enabled
-                  ? "bg-primary shadow-[0_0_6px_-1px_hsl(var(--primary)/0.6)] scale-100"
-                  : "bg-muted-foreground/30 scale-90 group-hover/item:bg-muted-foreground/50",
-              )}
-            />
-            <span className="flex-1 truncate tracking-tight opacity-90 group-hover/item:opacity-100">
-              {item.name}
-            </span>
+            <Power className="size-3" />
+            <span className="leading-none">启用全部</span>
           </button>
-        ))}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              batchToggleFn(false);
+            }}
+            className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted rounded transition-colors"
+            type="button"
+          >
+            <PowerOff className="size-3" />
+            <span className="leading-none">禁用全部</span>
+          </button>
+        </div>
+
+        {/* Item list */}
+        <div className="flex flex-col gap-1 max-h-[180px] overflow-y-auto -mr-1 pr-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 transition-colors">
+          {items.map((item, index) => (
+            <button
+              key={item.id}
+              style={{
+                animationDelay: `${index * 30}ms`,
+                animationFillMode: "both",
+              }}
+              className={cn(
+                "group/item flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition-all duration-200 text-left w-full cursor-pointer select-none animate-in fade-in slide-in-from-left-1",
+                "text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted/80",
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFn(item.installId, item.enabled);
+              }}
+              type="button"
+            >
+              <div
+                className={cn(
+                  "w-2 h-2 rounded-full transition-all duration-300 flex-shrink-0",
+                  item.enabled
+                    ? "bg-primary shadow-[0_0_6px_-1px_hsl(var(--primary)/0.6)] scale-100"
+                    : "bg-muted-foreground/30 scale-90 group-hover/item:bg-muted-foreground/50",
+                )}
+              />
+              <span className="flex-1 truncate tracking-tight opacity-90 group-hover/item:opacity-100">
+                {item.name}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
     );
   };
@@ -349,20 +496,35 @@ export function CardNav({
               ref={setCardRef(0)}
               className="group relative flex flex-col p-5 rounded-lg border bg-muted/30 border-border/50 hover:-translate-y-0.5 hover:bg-muted/40 hover:shadow-[0_4px_12px_-2px_rgba(var(--foreground),0.05)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] min-h-[140px]"
             >
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="flex items-center justify-center size-9 rounded-md bg-muted text-muted-foreground transition-all duration-300">
-                  <Server className="size-[1.125rem]" />
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex items-center justify-center size-9 rounded-md bg-muted text-muted-foreground transition-all duration-300">
+                    <Server className="size-[1.125rem]" />
+                  </div>
+                  <button
+                    className="flex items-center gap-1 bg-transparent border-none cursor-pointer transition-all duration-200 rounded px-2 py-1 -mx-2 -my-1 hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                    onClick={(e) => handleLabelClick(e, "capabilities/mcp")}
+                    type="button"
+                  >
+                    <span className="text-base font-semibold tracking-[-0.01em] text-foreground">
+                      MCP
+                    </span>
+                    <ChevronRight className="size-3.5 text-muted-foreground transition-transform duration-200 hover:translate-x-0.5" />
+                  </button>
                 </div>
-                <button
-                  className="flex items-center gap-1 bg-transparent border-none cursor-pointer transition-all duration-200 rounded px-2 py-1 -mx-2 -my-1 hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
-                  onClick={(e) => handleLabelClick(e, "capabilities/mcp")}
-                  type="button"
-                >
-                  <span className="text-base font-semibold tracking-[-0.01em] text-foreground">
-                    MCP
-                  </span>
-                  <ChevronRight className="size-3.5 text-muted-foreground transition-transform duration-200 hover:translate-x-0.5" />
-                </button>
+                {installedMcps.filter((i) => i.enabled).length > MCP_LIMIT && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleWarningClick("mcp");
+                    }}
+                    className="flex items-center justify-center size-6 rounded-full hover:bg-amber-500/20 transition-colors"
+                    type="button"
+                    title="点击查看详情"
+                  >
+                    <AlertTriangle className="size-4 text-amber-500" />
+                  </button>
+                )}
               </div>
               {renderItemBadges(installedMcps, "未安装 MCP", "mcp")}
             </div>
@@ -372,20 +534,36 @@ export function CardNav({
               ref={setCardRef(1)}
               className="group relative flex flex-col p-5 rounded-lg border bg-muted/30 border-border/50 hover:-translate-y-0.5 hover:bg-muted/40 hover:shadow-[0_4px_12px_-2px_rgba(var(--foreground),0.05)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] min-h-[140px]"
             >
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="flex items-center justify-center size-9 rounded-md bg-muted text-muted-foreground transition-all duration-300">
-                  <Sparkles className="size-[1.125rem]" />
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex items-center justify-center size-9 rounded-md bg-muted text-muted-foreground transition-all duration-300">
+                    <Sparkles className="size-[1.125rem]" />
+                  </div>
+                  <button
+                    className="flex items-center gap-1 bg-transparent border-none cursor-pointer transition-all duration-200 rounded px-2 py-1 -mx-2 -my-1 hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                    onClick={(e) => handleLabelClick(e, "capabilities/skills")}
+                    type="button"
+                  >
+                    <span className="text-base font-semibold tracking-[-0.01em] text-foreground">
+                      Skills
+                    </span>
+                    <ChevronRight className="size-3.5 text-muted-foreground transition-transform duration-200 hover:translate-x-0.5" />
+                  </button>
                 </div>
-                <button
-                  className="flex items-center gap-1 bg-transparent border-none cursor-pointer transition-all duration-200 rounded px-2 py-1 -mx-2 -my-1 hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
-                  onClick={(e) => handleLabelClick(e, "capabilities/skills")}
-                  type="button"
-                >
-                  <span className="text-base font-semibold tracking-[-0.01em] text-foreground">
-                    Skills
-                  </span>
-                  <ChevronRight className="size-3.5 text-muted-foreground transition-transform duration-200 hover:translate-x-0.5" />
-                </button>
+                {installedSkills.filter((i) => i.enabled).length >
+                  SKILL_LIMIT && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleWarningClick("skill");
+                    }}
+                    className="flex items-center justify-center size-6 rounded-full hover:bg-amber-500/20 transition-colors"
+                    type="button"
+                    title="点击查看详情"
+                  >
+                    <AlertTriangle className="size-4 text-amber-500" />
+                  </button>
+                )}
               </div>
               {renderItemBadges(installedSkills, "未安装技能", "skill")}
             </div>

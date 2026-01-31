@@ -102,6 +102,12 @@
       "selected": "{{count}}/{{total}} servers selected",
       "cancel": "Cancel",
       "confirm": "Confirm"
+    },
+    "warnings": {
+      "tooManyMcps": "Too many MCP servers enabled ({{count}}). This may slow down system loading and reduce performance.",
+      "tooManySkills": "Too many skills enabled ({{count}}). This may slow down system loading and reduce performance.",
+      "mcpLimitReached": "Enabling this MCP will exceed the recommended limit (3 servers). Too many MCPs may slow down system loading.",
+      "skillLimitReached": "Enabling this skill will exceed the recommended limit (5 skills). Too many skills may slow down system loading."
     }
   },
   "prompts": {
@@ -716,5 +722,13 @@
     "create": "Create",
     "delete": "Delete",
     "save": "Save"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{page}}",
+    "of": "/ {{total}}",
+    "rowsPerPage": "Rows per page",
+    "items": "items"
   }
 }
