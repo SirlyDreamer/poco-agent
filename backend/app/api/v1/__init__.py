@@ -3,7 +3,9 @@ from fastapi import APIRouter
 from app.api.v1 import (
     attachments,
     callback,
+    claude_md,
     env_vars,
+    internal_claude_md,
     internal_env_vars,
     internal_slash_commands,
     internal_mcp_config,
@@ -41,6 +43,8 @@ api_v1_router.include_router(projects.router)
 api_v1_router.include_router(tool_executions.router)
 api_v1_router.include_router(attachments.router)
 api_v1_router.include_router(env_vars.router)
+api_v1_router.include_router(claude_md.router)
+api_v1_router.include_router(internal_claude_md.router)
 api_v1_router.include_router(internal_env_vars.router)
 api_v1_router.include_router(internal_mcp_config.router)
 api_v1_router.include_router(internal_skill_config.router)
