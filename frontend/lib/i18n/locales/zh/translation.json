@@ -119,7 +119,8 @@
       "uploadSuccess": "文件上传成功",
       "uploadFailed": "文件上传失败",
       "actionFailed": "操作失败，请重试",
-      "fileTooLarge": "文件过大，最大支持 100MB"
+      "fileTooLarge": "文件过大，最大支持 100MB",
+      "duplicateFileName": "已存在同名附件：{{name}}，请先删除或重命名"
     },
     "mcpSelector": {
       "title": "选择 MCP 服务器",

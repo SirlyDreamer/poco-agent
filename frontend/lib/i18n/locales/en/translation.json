@@ -119,7 +119,8 @@
       "uploadSuccess": "File uploaded successfully",
       "uploadFailed": "File upload failed",
       "actionFailed": "Action failed, please try again",
-      "fileTooLarge": "File too large, max 100MB supported"
+      "fileTooLarge": "File too large, max 100MB supported",
+      "duplicateFileName": "An attachment named {{name}} already exists. Please remove or rename it."
     },
     "mcpSelector": {
       "title": "Select MCP Servers",
