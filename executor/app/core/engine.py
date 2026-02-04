@@ -59,8 +59,9 @@ class AgentExecutor:
     async def execute(
         self, prompt: str, config: TaskConfig, *, permission_mode: str = "default"
     ):
-        await self.workspace.prepare(config)
-        ctx = ExecutionContext(self.session_id, str(self.workspace.work_path))
+        # Initialize context early so we can always report failures via callbacks,
+        # even if workspace preparation (e.g. repo clone) fails.
+        ctx = ExecutionContext(self.session_id, str(self.workspace.root_path))
         if config.browser_enabled:
             ctx.current_state.browser = BrowserState(enabled=True)
 
@@ -78,6 +79,8 @@ class AgentExecutor:
         )
 
         try:
+            await self.workspace.prepare(config)
+            ctx.cwd = str(self.workspace.work_path)
             await self.hooks.run_on_setup(ctx)
 
             # Slash commands must be sent as-is (no prefix text), otherwise the SDK may not

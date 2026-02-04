@@ -18,6 +18,10 @@ class InputFile(BaseModel):
 class TaskConfig(BaseModel):
     repo_url: str | None = None
     git_branch: str = "main"
+    # Optional env var key holding a GitHub token (non-secret; used by manager).
+    git_token_env_key: str | None = None
+    # Resolved GitHub token (secret) injected by Executor Manager at runtime.
+    git_token: str | None = None
     # Built-in browser capability toggle (Playwright MCP is injected internally by the executor).
     browser_enabled: bool = False
     mcp_config: dict = Field(default_factory=dict)
