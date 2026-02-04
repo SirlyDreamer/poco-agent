@@ -74,6 +74,7 @@ class AgentCallbackRequest(BaseModel):
     time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     status: CallbackStatus
     progress: int
+    error_message: str | None = None
     new_message: object | None = None
     state_patch: AgentCurrentState | None = None
     sdk_session_id: str | None = None

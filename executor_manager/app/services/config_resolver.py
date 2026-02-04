@@ -2,6 +2,7 @@ import logging
 import re
 import time
 from typing import Any
+from urllib.parse import urlparse
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
@@ -10,6 +11,7 @@ from app.services.backend_client import BackendClient
 
 _ENV_PATTERN = re.compile(r"\$\{([^}]+)\}")
 logger = logging.getLogger(__name__)
+_GITHUB_HOSTS = {"github.com", "www.github.com"}
 
 
 def _resolve_env_value(value: Any, env_map: dict[str, str]) -> Any:
@@ -123,6 +125,9 @@ class ConfigResolver:
         resolved["mcp_config"] = resolved_mcp
         resolved["skill_files"] = resolved_skills
         resolved["input_files"] = resolved_inputs
+        resolved_git = self._resolve_git_token(resolved, env_map)
+        if resolved_git:
+            resolved.update(resolved_git)
 
         logger.info(
             "timing",
@@ -133,6 +138,40 @@ class ConfigResolver:
             },
         )
         return resolved
+
+    @staticmethod
+    def _resolve_git_token(config_snapshot: dict, env_map: dict[str, str]) -> dict:
+        """Resolve git token for private GitHub repos.
+
+        We only store the env var key (git_token_env_key) in persisted snapshots.
+        The secret value is resolved here at runtime and passed to the executor.
+        """
+        token_key = str(config_snapshot.get("git_token_env_key") or "").strip()
+        if not token_key:
+            return {}
+
+        repo_url = str(config_snapshot.get("repo_url") or "").strip()
+        if not repo_url:
+            return {}
+
+        try:
+            parsed = urlparse(repo_url)
+        except Exception:
+            return {}
+
+        host = (parsed.netloc or "").strip().lower()
+        if parsed.scheme not in ("http", "https") or host not in _GITHUB_HOSTS:
+            # Safety: never resolve and forward GitHub token to unknown hosts.
+            return {}
+
+        token = env_map.get(token_key)
+        if not token:
+            raise AppException(
+                error_code=ErrorCode.ENV_VAR_NOT_FOUND,
+                message=f"Env var not found: {token_key} (required for private GitHub repo)",
+            )
+
+        return {"git_token": token}
 
     async def _get_env_map(self, user_id: str) -> dict[str, str]:
         return await self.backend_client.get_env_map(user_id=user_id)

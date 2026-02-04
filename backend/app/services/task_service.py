@@ -18,6 +18,53 @@ from app.schemas.task import TaskEnqueueRequest, TaskEnqueueResponse
 class TaskService:
     """Service layer for task enqueue operations."""
 
+    @staticmethod
+    def _apply_project_repo_defaults(config: dict | None, project) -> dict | None:
+        """Fill repo context from project defaults when not explicitly provided by the caller."""
+        if not isinstance(config, dict) or not project:
+            return config
+
+        project_repo = (getattr(project, "repo_url", None) or "").strip()
+        if not project_repo:
+            return config
+
+        updated = dict(config)
+
+        repo_key_present = "repo_url" in updated
+        repo_val = (updated.get("repo_url") or "").strip() if repo_key_present else ""
+
+        # Only inject project defaults when the caller did not explicitly specify repo_url.
+        if not repo_key_present:
+            updated["repo_url"] = project_repo
+            # Fill defaults only when we use the project's repo_url.
+            if "git_branch" not in updated:
+                branch = (getattr(project, "git_branch", None) or "").strip()
+                if branch:
+                    updated["git_branch"] = branch
+            if "git_token_env_key" not in updated:
+                token_key = (getattr(project, "git_token_env_key", None) or "").strip()
+                if token_key:
+                    updated["git_token_env_key"] = token_key
+            return updated
+
+        # If repo_url is explicitly set (including explicit null/empty), do not override.
+        if not repo_val:
+            return updated
+
+        # If the caller uses the same repo_url as the project, we can safely fill missing
+        # branch/token defaults from the project.
+        if repo_val == project_repo:
+            if "git_branch" not in updated:
+                branch = (getattr(project, "git_branch", None) or "").strip()
+                if branch:
+                    updated["git_branch"] = branch
+            if "git_token_env_key" not in updated:
+                token_key = (getattr(project, "git_token_env_key", None) or "").strip()
+                if token_key:
+                    updated["git_token_env_key"] = token_key
+
+        return updated
+
     def _normalize_scheduled_at(
         self, scheduled_at: datetime, timezone_name: str | None
     ) -> datetime:
@@ -86,6 +133,14 @@ class TaskService:
         """Enqueue a new run for a session (create session if needed)."""
         base_config: dict | None = None
         project_id = request.project_id
+        project = None
+        if project_id is not None:
+            project = ProjectRepository.get_by_id(db, project_id)
+            if not project or project.user_id != user_id:
+                raise AppException(
+                    error_code=ErrorCode.PROJECT_NOT_FOUND,
+                    message=f"Project not found: {project_id}",
+                )
         if request.session_id:
             db_session = SessionRepository.get_by_id(db, request.session_id)
             if not db_session:
@@ -110,19 +165,17 @@ class TaskService:
             merged_config = self._build_config_snapshot(
                 db, user_id, request.config, base_config=base_config
             )
+            merged_config = self._apply_project_repo_defaults(merged_config, project)
         else:
             base_config = {}
             merged_config = self._build_config_snapshot(
                 db, user_id, request.config, base_config=base_config
             )
+            merged_config = self._apply_project_repo_defaults(merged_config, project)
             config_dict = merged_config
             if project_id is not None:
-                project = ProjectRepository.get_by_id(db, project_id)
-                if not project or project.user_id != user_id:
-                    raise AppException(
-                        error_code=ErrorCode.PROJECT_NOT_FOUND,
-                        message=f"Project not found: {project_id}",
-                    )
+                # Validation is done upfront; keep this check for backward compat with older codepaths.
+                _ = project
             db_session = SessionRepository.create(
                 session_db=db,
                 user_id=user_id,

@@ -75,6 +75,7 @@ class AgentCallbackRequest(BaseModel):
     time: datetime
     status: CallbackStatus
     progress: int
+    error_message: str | None = None
     new_message: Any | None = None
     state_patch: AgentCurrentState | None = None
     sdk_session_id: str | None = None

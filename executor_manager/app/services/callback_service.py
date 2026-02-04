@@ -225,6 +225,7 @@ class CallbackService:
             time=datetime.now(timezone.utc),
             status=callback.status,
             progress=100 if callback.status == "completed" else callback.progress,
+            error_message=callback.error_message,
             sdk_session_id=callback.sdk_session_id,
             workspace_files_prefix=result.workspace_files_prefix if result else None,
             workspace_manifest_key=result.workspace_manifest_key if result else None,

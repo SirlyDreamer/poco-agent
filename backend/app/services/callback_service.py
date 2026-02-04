@@ -381,6 +381,10 @@ class CallbackService:
                 db_run.finished_at = datetime.now(timezone.utc)
                 if callback.status == CallbackStatus.COMPLETED:
                     db_run.progress = 100
+                    db_run.last_error = None
+                elif callback.status == CallbackStatus.FAILED:
+                    if callback.error_message:
+                        db_run.last_error = callback.error_message
 
             self._sync_scheduled_task_last_status(db, db_run)
             db.commit()
